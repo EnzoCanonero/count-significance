@@ -4,8 +4,6 @@ from typing import Dict, Tuple
 import numpy as np
 from scipy.stats import norm
 
-# ------------------ Core stats functions ------------------
-
 SQRT2 = np.sqrt(2.0)
 
 
@@ -107,10 +105,7 @@ def required_toys_for_Z_precision(
     min_toys: int = 10_000,
     max_toys: int = 2_000_000,
 ):
-    """
-    Estimate N of toys to reach target relative precision on Z
-    (sigma(Z)/Z ~ sigrel), using asymptotic Z from r_obs.
-    """
+    """Estimate toys needed for target relative precision on Z."""
     Z = float(r_obs)
     if not np.isfinite(Z) or Z <= 0.0:
         return int(min_toys)
@@ -147,23 +142,15 @@ def pvals_onoff(
     max_toys: int = 2_000_000,
     seed: int = 12345,
 ) -> Dict[str, float]:
-    """
-    Compute p-values for observed (n,m) testing s:
-      - p_r     via normal approx with r(s)
-      - p_rstar via normal approx with r*(s)
-      - p_mc    via toys under H0 (tail of r), with N chosen dynamically.
-    """
-    # Observed test statistics
+    """Compute p-values for observed (n,m) testing s."""
     r_obs = float(r_signed(s, n, m, tau))
     rs_obs = float(r_star(s, n, m, tau))
 
     p_r = normal_sf(r_obs)
     p_rs = normal_sf(rs_obs)
 
-    # Profiled b under H0 for toy generation
     b_tilde = b_profiled(s, n, m, tau)
 
-    # Dynamic N_toys from Ntot-style formula
     n_toys = required_toys_for_Z_precision(
         r_obs,
         sigrel=sigrel,
@@ -171,11 +158,9 @@ def pvals_onoff(
         max_toys=max_toys,
     )
 
-    # Generate toys under H0 with b_tilde
     toys_N, toys_M = sample_null_toys(s, b_tilde, tau, n_toys=n_toys, seed=seed)
     r_toys = r_signed(s, toys_N, toys_M, tau)
 
-    # Plain upper-tail p-value
     p_mc = float(np.mean(r_toys >= r_obs))
 
     var_p = max(p_mc * (1.0 - p_mc), 0.0) / n_toys
@@ -217,16 +202,9 @@ def expected_Z_mc_onoff(
     max_toys: int = 2_000_000,
     seed: int = 12345,
 ):
-    """
-    Two-level MC:
-      Outer: generate (n_obs, m_obs) under truth (s_true, b, tau).
-      Inner: for each (n_obs, m_obs), compute p-values for H0:s=0
-             via pvals_onoff, which chooses the number of toys
-             dynamically from the asymptotic Z.
-    """
+    """Two-level MC: outer toys for data, inner toys for p-value."""
     rng = np.random.default_rng(seed)
 
-    # Outer toys: data under truth
     Ns = rng.poisson(lam=s_true + b, size=n_outer)
     Ms = rng.poisson(lam=tau * b, size=n_outer)
 
