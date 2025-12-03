@@ -1,9 +1,23 @@
-This repo contains code to perform to taks:
--   Compute Asimov median significance for test statistics r and r*, and compare them with exact numerical
--   Copmute single p-value prediction for given observed data, again comparing r and r* predicitons with exact numerical prediction
+This repo contains code to:
+- Compute p-values and Asimov/MC median significances for simple counting (“on”) and on/off experiments.
+- Compare asymptotic test statistics r, r* to MC.
 
-This is done for two model:
-- Simple counting, "On", experiment
-- "On-off" problem
+Structure (flattened modules, scripts, and configs):
+- `src/on.py`, `src/on_off.py`: model-specific math/stats helpers; `src/common.py` for small utilities.
+- `config/`: YAML configs for each plotting script (`simple_pval.yaml`, `simple_medsig.yaml`, `onoff_pval.yaml`, `onoff_medsig.yaml`).
+- `scripts/`: CLIs to generate plots (see usage below).
+- `notebooks/playground.ipynb`: lightweight demo for single p-value/medsig plots (interactive, not batch).
+- `parallelization/`: Condor-friendly on/off medsig sweep (uses `src.on_off`).
+- `plots/`: output PDFs.
 
-The folder "parallelization" is used for to perform the medsig computation for the on-off problem in a parallelize manner, if condor is available.
+Script usage (from repo root):
+- Simple counting p-values: `python scripts/make_simple_pval_plots.py --config config/simple_pval.yaml`
+- Simple counting medsig:   `python scripts/make_simple_medsig_plots.py --config config/simple_medsig.yaml`
+- On/off p-values:          `python scripts/make_onoff_pval_plots.py --config config/onoff_pval.yaml`
+- On/off medsig (serial):   `python scripts/make_onoff_medsig_plots.py --config config/onoff_medsig.yaml`
+
+Parallel on/off medsig:
+- Submit jobs: `condor_submit parallelization/pval_condor.sub`
+- Aggregate:   `python parallelization/collect_results.py parallelization/config.yaml`
+
+Install deps (example): `pip install -r requirements.txt` (numpy, scipy, matplotlib, pyyaml, tqdm optional).

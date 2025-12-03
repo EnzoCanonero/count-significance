@@ -1,0 +1,30 @@
+# Signal strengths to scan (true signal)
+s_vec: [1.0, 2.0, 5.0]
+
+# Fixed tau values and relative sigma values (sigma_b / b)
+tauVec: [0.5, 1.0, 2.0]
+relSigVec: [0.2, 0.5, 1.0]
+
+# b-range for fixed-τ scans
+b_min_tau: 0.1
+b_max_tau: 100.0
+n_bpts_tau: 30
+
+# b-range for fixed-σ_rel scans
+b_min_sig: 0.1
+b_max_sig: 100.0
+n_bpts_sig: 30
+
+# Toy controls
+sigrel_Z: 0.01
+min_toys: 1000
+max_toys: 10000000
+
+# Outer pseudo-experiments (median Z estimation)
+n_outer: 150          # set to 1000 to mirror Condor
+outer_seed: 12345
+inner_seed: 67890
+
+# Output
+outdir: "plots"
+out_summary_pdf: "plots/onoff_medsig.pdf"
