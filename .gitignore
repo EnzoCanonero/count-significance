@@ -20,3 +20,6 @@ venv/
 # Editor settings
 .vscode/
 .idea/
+
+# Python packaging artifacts
+*.egg-info/

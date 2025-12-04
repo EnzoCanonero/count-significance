@@ -20,4 +20,10 @@ Parallel on/off medsig:
 - Submit jobs: `condor_submit parallelization/pval_condor.sub`
 - Aggregate:   `python parallelization/collect_results.py parallelization/config.yaml`
 
-Install deps (example): `pip install -r requirements.txt` (numpy, scipy, matplotlib, pyyaml, tqdm optional).
+## Installation
+
+From the repo root, install in editable mode so notebooks/scripts can import `src`:
+
+```bash
+python -m pip install -e .
+```
