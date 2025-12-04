@@ -7,16 +7,20 @@ from scipy.stats import norm
 SQRT2 = np.sqrt(2.0)
 
 
-def normal_sf(x: float) -> float:
+def norm_survival(x: float) -> float:
     """Standard normal survival function SF(x) = 1 - Phi(x)."""
     return 0.5 * math.erfc(float(x) / SQRT2)
 
 
-def normal_isf(p):
+def norm_isf(p):
     """Inverse survival function: z with SF(z) = p (i.e. P[Z >= z] = p)."""
     p = np.asarray(p, dtype=float)
     z = norm.isf(p)
-    return float(z) if z.ndim == 0 else z
+    return z
+
+# Backward-compatible aliases (kept for existing notebooks/scripts)
+normal_sf = norm_survival
+normal_isf = norm_isf
 
 
 def xlogy(a, b):
@@ -38,57 +42,131 @@ def b_profiled(s, n, m, tau):
 
 
 def loglik_diff(s, n, m, tau):
-    """Δℓ(s) = ℓ(s_hat, b_hat) - ℓ_p(s); safe for n=0 or m=0 via xlogy."""
+    """
+    Δℓ(s) = ℓ(s_hat, b_hat) - ℓ_p(s)
+    - Negative Poisson means ⇒ NaN (undefined model)
+    - Zero means ⇒ use the continuous limit (finite if count is zero, +inf if count>0)
+    """
     s = np.asarray(s, dtype=float)
     btilde = b_profiled(s, n, m, tau)
     mu_on = s + btilde
     mu_off = tau * btilde
-    return (
-        xlogy(n, n / mu_on)
-        + xlogy(m, m / mu_off)
-        - (n + m)
+
+    # Only negative means are invalid; zero means are allowed as limits.
+    negative_mu = (mu_on < 0.0) | (mu_off < 0.0)
+
+    # Safe ratios for log terms.
+    n_arr = np.asarray(n, dtype=float)
+    m_arr = np.asarray(m, dtype=float)
+
+    ratio_on = np.ones_like(mu_on, dtype=float)
+    ratio_off = np.ones_like(mu_off, dtype=float)
+
+    pos_on = mu_on > 0
+    pos_off = mu_off > 0
+
+    ratio_on = np.divide(n_arr, mu_on, out=ratio_on, where=pos_on)
+    ratio_off = np.divide(m_arr, mu_off, out=ratio_off, where=pos_off)
+
+    # If mean is zero but count > 0, push ratio to +inf (correct limiting loglik).
+    ratio_on = np.where((~pos_on) & (n_arr > 0), np.inf, ratio_on)
+    ratio_off = np.where((~pos_off) & (m_arr > 0), np.inf, ratio_off)
+
+    ll = (
+        xlogy(n_arr, ratio_on)
+        + xlogy(m_arr, ratio_off)
+        - (n_arr + m_arr)
         + s
         + (1.0 + tau) * btilde
     )
 
+    if np.any(negative_mu):
+        ll = np.asarray(ll, dtype=float)
+        ll[negative_mu] = np.nan
 
-def r_signed(s, n, m, tau):
+    return ll
+
+
+def r_stat_onoff(s, n, m, tau):
     """Signed LR root: r(s) = sign(s_hat - s)*sqrt(2*Δℓ(s)), with s_hat = n - m/tau."""
     shat = n - m / tau
     dll = np.maximum(loglik_diff(s, n, m, tau), 0.0)
     return np.sign(shat - s) * np.sqrt(2.0 * dll)
 
 
-def q_value(s, n, m, tau):
-    """Closed-form q(s); returns NaN if logs are invalid (e.g. n=0 or m=0)."""
-    s = np.asarray(s, dtype=float)
-    btilde = b_profiled(s, n, m, tau)
-    mu_on = s + btilde
+def q_stat_onoff(s, n, m, tau):
+    """
+    Closed-form q(s) for the on/off problem.
+
+    Domain / safety:
+      * requires mu_on > 0 and mu_off > 0
+      * for n = 0 or m = 0, we return the continuous limit q(s) -> 0
+      * otherwise use the analytic expression
+    """
+    s_arr = np.asarray(s, dtype=float)
+
+    # Profiled background and implied means in on/off regions
+    btilde = b_profiled(s_arr, n, m, tau)
+    mu_on = s_arr + btilde
     mu_off = tau * btilde
-    if np.any(mu_on <= 0) or np.any(mu_off <= 0) or (n == 0) or (m == 0):
-        return np.full_like(s, np.nan, dtype=float)
+
+    # 1) Hard domain check on the Poisson means
+    invalid_mu = (mu_on <= 0.0) | (mu_off <= 0.0)
+    if np.any(invalid_mu):
+        # Log/ratio expressions are not defined here
+        return np.full_like(s_arr, np.nan, dtype=float)
+
+    # 2) Handle the boundary case n=0 or m=0 via the continuous limit q -> 0
+    if (n == 0) or (m == 0):
+        return np.zeros_like(s_arr, dtype=float)
+
+    # 3) Regular case: use the closed-form expression
     num_pref = np.sqrt(n * m)
     den_pref = np.sqrt((n / (mu_on**2)) + (m / (btilde**2)))
+
     log_on = np.log(n / mu_on)
     log_off = np.log(m / mu_off)
     bracket = (log_on / btilde) - (log_off / mu_on)
+
     return num_pref / den_pref * bracket
 
 
-def r_star(s, n, m, tau, eps: float = 1e-12):
+def r_star_onoff(s, n, m, tau, eps: float = 1e-12):
     """
     Modified root:
-        r*(s) = r(s) + (1/r(s)) * log( r(s) / q(s) )
-    Falls back to r if |r| small or q has wrong sign/NaN.
-    """
-    r = r_signed(s, n, m, tau)
-    out = np.array(r, copy=True, dtype=float)
-    q = q_value(s, n, m, tau)
+        r*(s) = r(s) + (1/r(s)) * log( r(s) / q(s) ).
 
-    small = np.abs(r) < eps
-    valid = (~small) & np.isfinite(q) & np.isfinite(r) & (q * r > 0.0)
+    Safety / fallback rules:
+      * if |r| < eps  → use r (avoid division by ~0)
+      * if r or q is non-finite → use r
+      * if r and q have opposite sign or q = 0 → use r
+    """
+    # Base root and its copy for output
+    r = np.asarray(r_stat_onoff(s, n, m, tau), dtype=float)
+    out = np.array(r, copy=True, dtype=float)
+
+    # Auxiliary quantity q(s) with its own safety logic
+    q = q_stat_onoff(s, n, m, tau)
+
+    # Masks to control where we apply the r* correction
+    small_r = np.abs(r) < eps
+    finite_r = np.isfinite(r)
+    finite_q = np.isfinite(q)
+    same_sign = (q * r) > 0.0  # excludes q=0, r=0 and opposite signs
+
+    # Valid points: r not too small, both finite, and same sign
+    valid = (~small_r) & finite_r & finite_q & same_sign
+
+    # Only modify entries where the correction is numerically safe
     out[valid] = r[valid] + (1.0 / r[valid]) * np.log(q[valid] / r[valid])
+
     return out
+
+
+# Backward-compatible aliases
+r_signed = r_stat_onoff
+q_value = q_stat_onoff
+r_star = r_star_onoff
 
 
 def sample_null_toys(s, b, tau, n_toys, seed=None):
@@ -105,12 +183,21 @@ def required_toys_for_Z_precision(
     min_toys: int = 10_000,
     max_toys: int = 2_000_000,
 ):
-    """Estimate toys needed for target relative precision on Z."""
+    """
+    Estimate N so that the MC-based Z has relative uncertainty ≤ sigrel.
+
+    Take Z ≈ r_obs and p = Φ̄(Z). With p̂ binomial, Var(p̂) = p(1−p)/N and
+    σ_p = sqrt[p(1−p)/N]. Propagate to Z via
+
+        σ_Z / Z ≈ |dZ/dp| * σ_p / Z ≤ sigrel,
+
+    solve for N, then clip to [min_toys, max_toys].
+    """
     Z = float(r_obs)
     if not np.isfinite(Z) or Z <= 0.0:
         return int(min_toys)
 
-    p = normal_sf(Z)
+    p = norm_survival(Z)
     if (not np.isfinite(p)) or p <= 0.0 or p >= 1.0:
         return int(max_toys)
 
@@ -130,7 +217,7 @@ def required_toys_for_Z_precision(
     N_int = min(N_int, int(max_toys))
     return N_int
 
-
+# Unified function to compute p-values using r, r*, and MC simulations
 def pvals_onoff(
     s,
     b,
@@ -143,14 +230,18 @@ def pvals_onoff(
     seed: int = 12345,
 ) -> Dict[str, float]:
     """Compute p-values for observed (n,m) testing s."""
-    r_obs = float(r_signed(s, n, m, tau))
-    rs_obs = float(r_star(s, n, m, tau))
 
-    p_r = normal_sf(r_obs)
-    p_rs = normal_sf(rs_obs)
+    #Compute the observed test statistics r and r* and their Gaussian-approximation p-values
+    r_obs = float(r_stat_onoff(s, n, m, tau))
+    rs_obs = float(r_star_onoff(s, n, m, tau))
 
+    p_r = norm_survival(r_obs)
+    p_rs = norm_survival(rs_obs)
+
+    #Compute the profiled background yield under the signal hypothesis s
     b_tilde = b_profiled(s, n, m, tau)
 
+    #Estimate the required number of toys to reach the target relative precision on the p-value
     n_toys = required_toys_for_Z_precision(
         r_obs,
         sigrel=sigrel,
@@ -158,8 +249,10 @@ def pvals_onoff(
         max_toys=max_toys,
     )
 
+    #Generate toys to estimate the Monte Carlo p-value.
+    #Toys are drawn using the profiled background, mimicking the realistic case where b is unknown.
     toys_N, toys_M = sample_null_toys(s, b_tilde, tau, n_toys=n_toys, seed=seed)
-    r_toys = r_signed(s, toys_N, toys_M, tau)
+    r_toys = r_stat_onoff(s, toys_N, toys_M, tau)
 
     p_mc = float(np.mean(r_toys >= r_obs))
 
@@ -178,18 +271,36 @@ def pvals_onoff(
         "n_toys": int(n_toys),
     }
 
-
-def asimov_counts_onoff(s_true, b, tau) -> Tuple[float, float]:
-    nA = float(s_true + b)
-    mA = float(tau * b)
-    return nA, mA
+def asimov_counts_onoff(s_true, b, tau):
+    """Asimov (expected) on/off counts under the true (s_true, b, tau)."""
+    nA = float(s_true + b)  # on-region expected count
+    mA = float(tau * b)     # off-region expected count
+    return {"nA": nA, "mA": mA}
 
 
 def asimov_Zs_onoff(s_true, b, tau):
-    nA, mA = asimov_counts_onoff(s_true, b, tau)
-    z_r = float(r_signed(0.0, nA, mA, tau))
-    z_rss = float(r_star(0.0, nA, mA, tau))
-    return {"Z_A_r": z_r, "Z_A_rstar": z_rss, "nA": nA, "mA": mA}
+    """
+    Asimov discovery Z-values for testing s = 0 in the on/off problem.
+
+    Steps:
+      1. Build Asimov (expected) counts under the true model (s_true, b, τ):
+           n_A = s_true + b          (on region)
+           m_A = τ * b               (off region)
+      2. Evaluate r(0) and r*(0) at (n_A, m_A) to get the Asimov Z-values.
+    """
+    counts = asimov_counts_onoff(s_true, b, tau)
+    nA = counts["nA"]
+    mA = counts["mA"]
+
+    # Asimov Z-values for testing s = 0
+    z_r = float(r_stat_onoff(0.0, nA, mA, tau))
+    z_rss = float(r_star_onoff(0.0, nA, mA, tau))
+
+    return {
+        "Z_A_r": z_r,
+        "Z_A_rstar": z_rss,
+        **counts,
+    }
 
 
 def expected_Z_mc_onoff(
@@ -278,13 +389,18 @@ def expected_significance_onoff(
 
 __all__ = [
     "SQRT2",
+    "norm_survival",
+    "norm_isf",
     "normal_sf",
     "normal_isf",
     "xlogy",
     "b_profiled",
     "loglik_diff",
+    "r_stat_onoff",
     "r_signed",
+    "q_stat_onoff",
     "q_value",
+    "r_star_onoff",
     "r_star",
     "sample_null_toys",
     "required_toys_for_Z_precision",

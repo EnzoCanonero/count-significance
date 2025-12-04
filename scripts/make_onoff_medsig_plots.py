@@ -13,7 +13,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.common import load_yaml
-from src.on_off import asimov_Zs_onoff, normal_isf, pvals_onoff
+from src.on_off import asimov_Zs_onoff, norm_isf, pvals_onoff
 
 
 def _fmt(x):
@@ -37,7 +37,7 @@ def compute_single_Z(s_true, b, tau, rng_outer, rng_inner, sigrel_Z, min_toys, m
         max_toys=max_toys,
         seed=inner_seed_local,
     )
-    return normal_isf(out["p_mc"])
+    return norm_isf(out["p_mc"])
 
 
 def run_outer_experiments(cfg, b_values_tau, b_values_sig):
@@ -94,7 +94,16 @@ def median_grids(cfg, Z_groups, b_values_tau, b_values_sig):
     return Z_med_tau, Z_med_sig
 
 
-def make_plots(cfg, b_values_tau, b_values_sig, Z_med_tau, Z_med_sig, outdir, summary_pdf_path):
+def make_plots(
+    cfg,
+    b_values_tau,
+    b_values_sig,
+    Z_med_tau,
+    Z_med_sig,
+    outdir,
+    summary_pdf_path,
+    save_individual: bool,
+):
     s_vec = cfg["s_vec"]
     tauVec = cfg["tauVec"]
     relSigVec = cfg["relSigVec"]
@@ -146,7 +155,8 @@ def make_plots(cfg, b_values_tau, b_values_sig, Z_med_tau, Z_med_sig, outdir, su
                 ax.legend(frameon=False, loc="upper right")
                 plt.tight_layout()
                 fname = outdir / f"onoff_bscan_s{_fmt(s_true)}_tau{_fmt(tau)}.pdf"
-                fig.savefig(fname)
+                if save_individual:
+                    fig.savefig(fname)
                 pdf.savefig(fig)
                 plt.close(fig)
 
@@ -181,11 +191,14 @@ def make_plots(cfg, b_values_tau, b_values_sig, Z_med_tau, Z_med_sig, outdir, su
                 ax.legend(frameon=False, loc="upper right")
                 plt.tight_layout()
                 fname = outdir / f"onoff_bscan_s{_fmt(s_true)}_sigrel{_fmt(sigma_rel)}.pdf"
-                fig.savefig(fname)
+                if save_individual:
+                    fig.savefig(fname)
                 pdf.savefig(fig)
                 plt.close(fig)
 
-    print(f"Saved individual plots and combined PDF to {summary_pdf_path.resolve()}")
+    if save_individual:
+        print(f"Saved individual plots under {outdir.resolve()}")
+    print(f"Saved combined PDF to {summary_pdf_path.resolve()}")
 
 
 def main(cfg_path: str):
@@ -202,12 +215,23 @@ def main(cfg_path: str):
     )
 
     outdir = Path(cfg.get("outdir", "plots"))
+    save_individual = bool(cfg.get("individual_plots", False))
     outdir.mkdir(parents=True, exist_ok=True)
     summary_pdf_path = Path(cfg.get("out_summary_pdf", outdir / "onoff_medsig.pdf"))
+    summary_pdf_path.parent.mkdir(parents=True, exist_ok=True)
 
     Z_groups = run_outer_experiments(cfg, b_values_tau, b_values_sig)
     Z_med_tau, Z_med_sig = median_grids(cfg, Z_groups, b_values_tau, b_values_sig)
-    make_plots(cfg, b_values_tau, b_values_sig, Z_med_tau, Z_med_sig, outdir, summary_pdf_path)
+    make_plots(
+        cfg,
+        b_values_tau,
+        b_values_sig,
+        Z_med_tau,
+        Z_med_sig,
+        outdir,
+        summary_pdf_path,
+        save_individual,
+    )
 
 
 if __name__ == "__main__":

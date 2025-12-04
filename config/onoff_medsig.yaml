@@ -16,9 +16,9 @@ b_max_sig: 100.0
 n_bpts_sig: 30
 
 # Toy controls
-sigrel_Z: 0.01
-min_toys: 1000
-max_toys: 10000000
+sigrel_Z: 0.05
+min_toys: 500
+max_toys: 100000
 
 # Outer pseudo-experiments (median Z estimation)
 n_outer: 150          # set to 1000 to mirror Condor
@@ -28,3 +28,4 @@ inner_seed: 67890
 # Output
 outdir: "plots"
 out_summary_pdf: "plots/onoff_medsig.pdf"
+individual_plots: False

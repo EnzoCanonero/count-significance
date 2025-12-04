@@ -14,6 +14,10 @@ from src.common import load_yaml
 from src.on import r_stat, r_star, median_expected_significance
 
 
+def _fmt(x):
+    return f"{x:g}".replace(".", "p")
+
+
 def main(cfg_path: str):
     cfg = load_yaml(cfg_path)
     s_vec = np.asarray(cfg["s_vec"], dtype=float)
@@ -23,6 +27,7 @@ def main(cfg_path: str):
     n_outer = int(cfg.get("n_outer", 200))
     seed = int(cfg.get("seed", 12345))
     out_pdf = Path(cfg["out_pdf"])
+    save_individual = bool(cfg.get("individual_plots", False))
 
     out_pdf.parent.mkdir(parents=True, exist_ok=True)
     b_values = np.logspace(np.log10(b_min), np.log10(b_max), n_bpts)
@@ -66,6 +71,9 @@ def main(cfg_path: str):
             ax.set_title(fr"Asimov vs MC median Z, $s_{{\mathrm{{true}}}} = {s_true}$")
 
             plt.tight_layout()
+            if save_individual:
+                fname = out_pdf.parent / f"simple_medsig_s{_fmt(s_true)}.pdf"
+                fig.savefig(fname)
             pdf.savefig(fig)
             plt.close(fig)
 

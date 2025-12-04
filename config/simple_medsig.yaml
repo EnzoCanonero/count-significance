@@ -12,3 +12,4 @@ seed: 12345           # RNG seed for reproducibility
 
 # Output
 out_pdf: "plots/simple_medsig.pdf"
+individual_plots: False

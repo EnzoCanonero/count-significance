@@ -57,7 +57,7 @@ def r_star(s0: float, b: float, n: float) -> float:
     return r + (1.0 / r) * math.log(abs(q / r))
 
 
-def compute_curves(s0: float, b: float, n_max_sigma: float = 5.0):
+def pvals_on(s0: float, b: float, n_max_sigma: float = 5.0):
     """Build arrays of exact and asymptotic p-values over a range of n."""
     mu0 = s0 + b
     n_min = int(0)
@@ -115,7 +115,7 @@ __all__ = [
     "q_stat",
     "norm_survival",
     "r_star",
-    "compute_curves",
+    "pvals_on",
     "median_count",
     "median_expected_significance",
 ]
