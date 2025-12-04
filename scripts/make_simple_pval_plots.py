@@ -11,7 +11,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.common import load_yaml
-from src.on import compute_curves
+from src.on import pvals_on
+
+
+def _fmt(x):
+    return f"{x:g}".replace(".", "p")
 
 
 def main(cfg_path: str):
@@ -19,6 +23,7 @@ def main(cfg_path: str):
     b_vec = np.asarray(cfg["b_vec"], dtype=float)
     s0_vec = np.asarray(cfg["s0_vec"], dtype=float)
     out_pdf = Path(cfg["out_pdf"])
+    save_individual = bool(cfg.get("individual_plots", False))
 
     out_pdf.parent.mkdir(parents=True, exist_ok=True)
 
@@ -35,9 +40,7 @@ def main(cfg_path: str):
                 axes = [axes]
 
             for ax, s0 in zip(axes, s0_vec):
-                n_vals, p_true, p_r, p_rstar = compute_curves(
-                    float(s0), float(b_fixed)
-                )
+                n_vals, p_true, p_r, p_rstar = pvals_on(float(s0), float(b_fixed))
 
                 ax.plot(
                     n_vals,
@@ -78,6 +81,9 @@ def main(cfg_path: str):
             axes[0].legend(fontsize=11)
 
             plt.tight_layout()
+            if save_individual:
+                fname = out_pdf.parent / f"simple_pval_b{_fmt(b_fixed)}.pdf"
+                fig.savefig(fname)
             pdf.savefig(fig)
             plt.close(fig)
 

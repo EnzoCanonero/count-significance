@@ -10,3 +10,4 @@ sigrel: 0.001
 
 # Output PDF path
 out_pdf: "plots/onoff_pval_plots.pdf"
+individual_plots: False

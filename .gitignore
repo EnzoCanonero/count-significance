@@ -1,0 +1,22 @@
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*.pyd
+*.pyo
+
+# Notebook checkpoints and autosave files
+.ipynb_checkpoints/
+*.nbconvert.ipynb
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+
+# System files
+.DS_Store
+
+# Editor settings
+.vscode/
+.idea/
