@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "counting-exp"
+version = "0.2.0"
+description = "Counting experiment utilities and plotting scripts"
+requires-python = ">=3.9"
+dependencies = [
+    "numpy>=2.0.0",
+    "scipy>=1.13.0",
+    "matplotlib>=3.9.0",
+    "PyYAML>=6.0",
+    "tqdm>=4.64.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src", "src.*"]
