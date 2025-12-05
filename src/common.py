@@ -1,4 +1,5 @@
 from pathlib import Path
+import math
 import yaml
 
 
@@ -12,4 +13,9 @@ def ensure_dir(path: Path):
     return path
 
 
-__all__ = ["load_yaml", "ensure_dir"]
+def norm_survival(x: float) -> float:
+    """One-sided upper tail 1 - Phi(x)."""
+    return 0.5 * math.erfc(float(x) / math.sqrt(2.0))
+
+
+__all__ = ["load_yaml", "ensure_dir", "norm_survival"]

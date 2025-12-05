@@ -4,23 +4,7 @@ from typing import Dict, Tuple
 import numpy as np
 from scipy.stats import norm
 
-SQRT2 = np.sqrt(2.0)
-
-
-def norm_survival(x: float) -> float:
-    """Standard normal survival function SF(x) = 1 - Phi(x)."""
-    return 0.5 * math.erfc(float(x) / SQRT2)
-
-
-def norm_isf(p):
-    """Inverse survival function: z with SF(z) = p (i.e. P[Z >= z] = p)."""
-    p = np.asarray(p, dtype=float)
-    z = norm.isf(p)
-    return z
-
-# Backward-compatible aliases (kept for existing notebooks/scripts)
-normal_sf = norm_survival
-normal_isf = norm_isf
+from .common import norm_survival
 
 
 def xlogy(a, b):
@@ -163,12 +147,6 @@ def r_star_onoff(s, n, m, tau, eps: float = 1e-12):
     return out
 
 
-# Backward-compatible aliases
-r_signed = r_stat_onoff
-q_value = q_stat_onoff
-r_star = r_star_onoff
-
-
 def sample_null_toys(s, b, tau, n_toys, seed=None):
     """Generate toys under H0: N~Pois(s+b), M~Pois(tau*b)."""
     rng = np.random.default_rng(seed)
@@ -260,23 +238,11 @@ def pvals_onoff(
     se_mc = float(math.sqrt(var_p))
 
     return {
-        "r_obs": r_obs,
-        "rstar_obs": rs_obs,
-        "p_r": p_r,
-        "p_rstar": p_rs,
         "p_mc": p_mc,
         "p_mc_se": se_mc,
-        "mc_resolution": 1.0 / n_toys,
-        "b_tilde": float(b_tilde),
-        "n_toys": int(n_toys),
+        "p_r": p_r,
+        "p_rstar": p_rs,
     }
-
-def asimov_counts_onoff(s_true, b, tau):
-    """Asimov (expected) on/off counts under the true (s_true, b, tau)."""
-    nA = float(s_true + b)  # on-region expected count
-    mA = float(tau * b)     # off-region expected count
-    return {"nA": nA, "mA": mA}
-
 
 def asimov_Zs_onoff(s_true, b, tau):
     """
@@ -288,9 +254,8 @@ def asimov_Zs_onoff(s_true, b, tau):
            m_A = τ * b               (off region)
       2. Evaluate r(0) and r*(0) at (n_A, m_A) to get the Asimov Z-values.
     """
-    counts = asimov_counts_onoff(s_true, b, tau)
-    nA = counts["nA"]
-    mA = counts["mA"]
+    nA = float(s_true + b)  # on-region expected count
+    mA = float(tau * b)     # off-region expected count
 
     # Asimov Z-values for testing s = 0
     z_r = float(r_stat_onoff(0.0, nA, mA, tau))
@@ -299,11 +264,12 @@ def asimov_Zs_onoff(s_true, b, tau):
     return {
         "Z_A_r": z_r,
         "Z_A_rstar": z_rss,
-        **counts,
+        "nA": nA,
+        "mA": mA,
     }
 
 
-def expected_Z_mc_onoff(
+def median_expected_significance_onoff(
     s_true,
     b,
     tau,
@@ -320,7 +286,6 @@ def expected_Z_mc_onoff(
     Ms = rng.poisson(lam=tau * b, size=n_outer)
 
     p_mc = np.empty(n_outer, dtype=float)
-    mc_res = np.empty(n_outer, dtype=float)
 
     for i, (n_obs, m_obs) in enumerate(zip(Ns, Ms)):
         inner_seed = int(rng.integers(1, 2**31 - 1))
@@ -338,28 +303,15 @@ def expected_Z_mc_onoff(
         )
 
         p = float(out["p_mc"])
-        res = float(out["mc_resolution"])
+        res = 1.0 / float(min_toys)
 
         p = min(max(p, res), 1.0 - res)
 
         p_mc[i] = p
-        mc_res[i] = res
 
     Z = norm.isf(p_mc)
 
-    Z_med = float(np.median(Z))
-    Z_p16 = float(np.percentile(Z, 16.0))
-    Z_p84 = float(np.percentile(Z, 84.0))
-
-    return {
-        "Z_mc": Z,
-        "Z_mc_median": Z_med,
-        "Z_mc_p16": Z_p16,
-        "Z_mc_p84": Z_p84,
-        "mc_res_min": float(mc_res.min()),
-        "mc_res_max": float(mc_res.max()),
-        "mc_res_median": float(np.median(mc_res)),
-    }
+    return float(np.median(Z))
 
 
 def expected_significance_onoff(
@@ -372,41 +324,63 @@ def expected_significance_onoff(
     max_toys: int = 2_000_000,
     seed: int = 12345,
 ):
-    """Compute both Asimov and MC expected significances for H0:s=0."""
-    asim = asimov_Zs_onoff(s_true, b, tau)
-    mc = expected_Z_mc_onoff(
-        s_true,
-        b,
-        tau,
-        n_outer=n_outer,
-        sigrel=sigrel,
-        min_toys=min_toys,
-        max_toys=max_toys,
-        seed=seed,
+    """
+    Compute Asimov and MC expected significances for H0:s=0.
+
+    Accepts scalars or array-like s_true, b, tau (broadcasted); returns dict of arrays.
+    """
+    s_arr, b_arr, tau_arr = np.broadcast_arrays(
+        np.asarray(s_true, dtype=float),
+        np.asarray(b, dtype=float),
+        np.asarray(tau, dtype=float),
     )
-    return {**asim, **mc}
+    flat_s = s_arr.ravel()
+    flat_b = b_arr.ravel()
+    flat_tau = tau_arr.ravel()
+
+    rng = np.random.default_rng(seed)
+
+    Z_A_r = np.empty_like(flat_s, dtype=float)
+    Z_A_rstar = np.empty_like(flat_s, dtype=float)
+    Z_mc_median = np.empty_like(flat_s, dtype=float)
+
+    for i, (s_val, b_val, tau_val) in enumerate(zip(flat_s, flat_b, flat_tau)):
+        asim = asimov_Zs_onoff(float(s_val), float(b_val), float(tau_val))
+        mc = median_expected_significance_onoff(
+            float(s_val),
+            float(b_val),
+            float(tau_val),
+            n_outer=n_outer,
+            sigrel=sigrel,
+            min_toys=min_toys,
+            max_toys=max_toys,
+            seed=int(rng.integers(1, 2**31 - 1)),
+        )
+        Z_A_r[i] = asim["Z_A_r"]
+        Z_A_rstar[i] = asim["Z_A_rstar"]
+        Z_mc_median[i] = mc
+
+    shape = s_arr.shape
+    return {
+        "Z_A_r": Z_A_r.reshape(shape),
+        "Z_A_rstar": Z_A_rstar.reshape(shape),
+        "Z_mc_median": Z_mc_median.reshape(shape),
+    }
 
 
 __all__ = [
     "SQRT2",
     "norm_survival",
-    "norm_isf",
-    "normal_sf",
-    "normal_isf",
     "xlogy",
     "b_profiled",
     "loglik_diff",
     "r_stat_onoff",
-    "r_signed",
     "q_stat_onoff",
-    "q_value",
     "r_star_onoff",
-    "r_star",
     "sample_null_toys",
     "required_toys_for_Z_precision",
     "pvals_onoff",
-    "asimov_counts_onoff",
     "asimov_Zs_onoff",
-    "expected_Z_mc_onoff",
+    "median_expected_significance_onoff",
     "expected_significance_onoff",
 ]

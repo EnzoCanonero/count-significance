@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.on_off import norm_isf, pvals_onoff  # noqa: E402
+from src.on_off import pvals_onoff  # noqa: E402
 
 
 def main():
@@ -74,7 +74,7 @@ def main():
                     seed=inner_seed,
                 )
 
-                Z_single = norm_isf(out_p["p_mc"])
+                Z_single = norm.isf(out_p["p_mc"])
 
                 rec = {
                     "mode": "tau",
@@ -113,7 +113,7 @@ def main():
                     seed=inner_seed,
                 )
 
-                Z_single = norm_isf(out_p["p_mc"])
+                Z_single = norm.isf(out_p["p_mc"])
 
                 rec = {
                     "mode": "sig",

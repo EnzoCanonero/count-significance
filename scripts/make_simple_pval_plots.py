@@ -2,6 +2,7 @@
 import argparse
 import sys
 from pathlib import Path
+import math
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -40,11 +41,21 @@ def main(cfg_path: str):
                 axes = [axes]
 
             for ax, s0 in zip(axes, s0_vec):
-                n_vals, p_true, p_r, p_rstar = pvals_on(float(s0), float(b_fixed))
+                s0f = float(s0)
+                bf = float(b_fixed)
+                mu0 = s0f + bf
+                n_min = 0
+                n_max = int(math.ceil(mu0 + 5.0 * math.sqrt(mu0)))
+                n_vals = np.arange(n_min, n_max + 1, dtype=int)
+
+                out = pvals_on(s0f, bf, n_vals)
+                p_true = out["p_true"]
+                p_r = out["p_r"]
+                p_rstar = out["p_rstar"]
 
                 ax.plot(
                     n_vals,
-                    p_true,
+                    np.asarray(p_true, dtype=float),
                     marker="x",
                     linestyle="None",
                     label="MC",
@@ -52,7 +63,7 @@ def main(cfg_path: str):
                 )
                 ax.plot(
                     n_vals,
-                    p_r,
+                    np.asarray(p_r, dtype=float),
                     marker="o",
                     linestyle="None",
                     label="1 − Φ(r)",
@@ -60,7 +71,7 @@ def main(cfg_path: str):
                 )
                 ax.plot(
                     n_vals,
-                    p_rstar,
+                    np.asarray(p_rstar, dtype=float),
                     marker="p",
                     linestyle="None",
                     label="1 − Φ(r*)",
