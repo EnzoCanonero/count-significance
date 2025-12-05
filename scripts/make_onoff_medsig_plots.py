@@ -13,7 +13,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.common import load_yaml
-from src.on_off import asimov_Zs_onoff, norm_isf, pvals_onoff
+from src.on_off import asimov_Zs_onoff, pvals_onoff
 
 
 def _fmt(x):
@@ -37,7 +37,8 @@ def compute_single_Z(s_true, b, tau, rng_outer, rng_inner, sigrel_Z, min_toys, m
         max_toys=max_toys,
         seed=inner_seed_local,
     )
-    return norm_isf(out["p_mc"])
+    from scipy.stats import norm
+    return norm.isf(out["p_mc"])
 
 
 def run_outer_experiments(cfg, b_values_tau, b_values_sig):

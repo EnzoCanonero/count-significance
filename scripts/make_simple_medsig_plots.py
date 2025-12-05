@@ -11,7 +11,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.common import load_yaml
-from src.on import r_stat, r_star, median_expected_significance
+from src.on import expected_significance_on
 
 
 def _fmt(x):
@@ -36,15 +36,12 @@ def main(cfg_path: str):
 
     with PdfPages(out_pdf) as pdf:
         for s_true in s_vec:
-            r_list, rstar_list, zmed_list = [], [], []
-            for b in b_values:
-                n_Asimov = s_true + b
-                rA = r_stat(s0=0.0, b=b, n=n_Asimov)
-                rstarA = r_star(s0=0.0, b=b, n=n_Asimov)
-                Z_med = median_expected_significance(s_true, b, n_outer=n_outer, seed=seed)
-                r_list.append(rA)
-                rstar_list.append(rstarA)
-                zmed_list.append(Z_med)
+            out = expected_significance_on(
+                s_true=s_true, b=b_values, n_outer=n_outer, seed=seed
+            )
+            r_list = out["Z_A_r"]
+            rstar_list = out["Z_A_rstar"]
+            zmed = out["Z_mc_median"]
 
             fig, ax = plt.subplots(figsize=(9, 5), dpi=150)
             ax.plot(b_values, r_list, label=fr"Asimov r, s_true={s_true}")
@@ -56,7 +53,7 @@ def main(cfg_path: str):
             )
             ax.plot(
                 b_values,
-                zmed_list,
+                zmed,
                 linestyle="None",
                 marker="x",
                 label=fr"MC median Z, s_true={s_true}",
