@@ -2,8 +2,6 @@
 import argparse
 import sys
 from pathlib import Path
-from collections import defaultdict
-
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
@@ -13,189 +11,191 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.common import load_yaml
-from src.on_off import asimov_Zs_onoff, pvals_onoff
+from src.on_off import expected_significance_onoff
+
+# Call graph (on/off medsig)
+# - main: load config, prepare b grids, then runs experiments and plotting
+#   - run_experiments_onoff: build Asimov + MC grids via expected_significance_onoff
+#   - make_plots_onoff: save combined/individual PDFs
+#     - plot_fixed_tau / plot_fixed_sigrel: per-τ or per-σ_rel panels
 
 
 def _fmt(x):
     return f"{x:g}".replace(".", "p")
 
 
-def compute_single_Z(s_true, b, tau, rng_outer, rng_inner, sigrel_Z, min_toys, max_toys):
-    """One pseudo-experiment: draw (n_obs, m_obs), compute p_mc, convert to Z."""
-    n_obs = int(rng_outer.poisson(lam=s_true + b))
-    m_obs = int(rng_outer.poisson(lam=tau * b))
-    inner_seed_local = int(rng_inner.integers(0, 2**31 - 1))
+def run_experiments_onoff(
+    s_vec: np.ndarray,
+    tau_vec: np.ndarray,
+    rel_sig_vec: np.ndarray,
+    b_values_tau: np.ndarray,
+    b_values_sig: np.ndarray,
+    cfg: dict,
+):
+    """
+    Compute Asimov and MC-median Z grids for the on/off case using expected_significance_onoff.
+    """
+    seed = int(cfg.get("seed", 12345))
+    sigrel = float(cfg["sigrel_Z"])
+    min_toys = int(cfg["min_toys"])
+    max_toys = int(cfg["max_toys"])
+    n_outer = int(cfg["n_outer"])
 
-    out = pvals_onoff(
-        s=0.0,
-        b=b,
-        tau=tau,
-        n=n_obs,
-        m=m_obs,
-        sigrel=sigrel_Z,
+    # Fixed tau grids: shape (S, T, B_tau)
+    s_grid_tau = s_vec[:, None, None]
+    b_grid_tau = b_values_tau[None, None, :]
+    tau_grid = tau_vec[None, :, None]
+    res_tau = expected_significance_onoff(
+        s_true=s_grid_tau,
+        b=b_grid_tau,
+        tau=tau_grid,
+        n_outer=n_outer,
+        sigrel=sigrel,
         min_toys=min_toys,
         max_toys=max_toys,
-        seed=inner_seed_local,
+        seed=seed,
     )
-    from scipy.stats import norm
-    return norm.isf(out["p_mc"])
+
+    # Fixed sigma_rel grids: tau(b) = 1/(sigma_rel^2 * b)
+    s_grid_sig = s_vec[:, None, None]
+    b_grid_sig = b_values_sig[None, None, :]
+    tau_grid_sig = 1.0 / (rel_sig_vec[None, :, None] ** 2 * b_grid_sig)
+    res_sig = expected_significance_onoff(
+        s_true=s_grid_sig,
+        b=b_grid_sig,
+        tau=tau_grid_sig,
+        n_outer=n_outer,
+        sigrel=sigrel,
+        min_toys=min_toys,
+        max_toys=max_toys,
+        seed=seed + 1,  # decorrelate from fixed-tau call
+    )
+
+    return (
+        res_tau["Z_A_r"],
+        res_tau["Z_A_rstar"],
+        res_sig["Z_A_r"],
+        res_sig["Z_A_rstar"],
+        res_tau["Z_mc_median"],
+        res_sig["Z_mc_median"],
+    )
 
 
-def run_outer_experiments(cfg, b_values_tau, b_values_sig):
-    s_vec = cfg["s_vec"]
-    tauVec = cfg["tauVec"]
-    relSigVec = cfg["relSigVec"]
-    n_outer = cfg["n_outer"]
-    sigrel_Z = cfg["sigrel_Z"]
-    min_toys = cfg["min_toys"]
-    max_toys = cfg["max_toys"]
-    outer_seed = cfg.get("outer_seed", 12345)
-    inner_seed = cfg.get("inner_seed", 67890)
-
-    Z_groups = defaultdict(list)
-
-    for outer_idx in range(n_outer):
-        rng_outer = np.random.default_rng(outer_seed + outer_idx)
-        rng_inner = np.random.default_rng(inner_seed + outer_idx)
-
-        for s_idx, s_true in enumerate(s_vec):
-            # Fixed-tau scan
-            for tau_idx, tau in enumerate(tauVec):
-                for b_idx, b in enumerate(b_values_tau):
-                    Z_single = compute_single_Z(
-                        s_true, b, tau, rng_outer, rng_inner, sigrel_Z, min_toys, max_toys
-                    )
-                    Z_groups[("tau", s_idx, tau_idx, b_idx)].append(Z_single)
-
-            # Fixed-sigma_rel scan (tau depends on b)
-            for sig_idx, sigma_rel in enumerate(relSigVec):
-                for b_idx, b in enumerate(b_values_sig):
-                    tau_b = 1.0 / (sigma_rel**2 * b)
-                    Z_single = compute_single_Z(
-                        s_true, b, tau_b, rng_outer, rng_inner, sigrel_Z, min_toys, max_toys
-                    )
-                    Z_groups[("sig", s_idx, sig_idx, b_idx)].append(Z_single)
-
-    return Z_groups
+def plot_fixed_tau(
+    s_true: float,
+    tau: float,
+    b_values: np.ndarray,
+    Z_A_r: np.ndarray,
+    Z_A_rstar: np.ndarray,
+    Z_med: np.ndarray,
+    pdf: PdfPages,
+    save_individual: bool,
+    outdir: Path,
+):
+    """Plot Asimov/MC median Z for a fixed τ scan over b."""
+    fig, ax = plt.subplots(figsize=(8, 5), dpi=150)
+    ax.plot(b_values, Z_A_r, label=r"Asimov $r$ (on/off)")
+    ax.plot(b_values, Z_A_rstar, "--", label=r"Asimov $r^\ast$ (on/off)")
+    ax.plot(b_values, Z_med, linestyle="None", marker="x", label=r"MC median $Z$")
+    ax.set_xscale("log")
+    ax.set_xlabel(r"$b$")
+    ax.set_ylabel(r"$r,\, r^\ast,\, Z$")
+    ax.set_ylim(bottom=-1, top=6)
+    ax.grid(True, which="both", ls="--", alpha=0.35)
+    ax.set_title(rf"$s_\mathrm{{true}} = {s_true}$, fixed $\tau = {tau}$")
+    ax.legend(frameon=False, loc="upper right")
+    plt.tight_layout()
+    if save_individual:
+        fname = outdir / f"onoff_bscan_s{_fmt(s_true)}_tau{_fmt(tau)}.pdf"
+        fig.savefig(fname)
+    pdf.savefig(fig)
+    plt.close(fig)
 
 
-def median_grids(cfg, Z_groups, b_values_tau, b_values_sig):
-    Z_med_tau = np.full((len(cfg["s_vec"]), len(cfg["tauVec"]), len(b_values_tau)), np.nan)
-    Z_med_sig = np.full((len(cfg["s_vec"]), len(cfg["relSigVec"]), len(b_values_sig)), np.nan)
+def plot_fixed_sigrel(
+    s_true: float,
+    sigma_rel: float,
+    b_values: np.ndarray,
+    Z_A_r: np.ndarray,
+    Z_A_rstar: np.ndarray,
+    Z_med: np.ndarray,
+    pdf: PdfPages,
+    save_individual: bool,
+    outdir: Path,
+):
+    """Plot Asimov/MC median Z for a fixed σ_rel scan over b."""
+    fig, ax = plt.subplots(figsize=(8, 5), dpi=150)
+    ax.plot(b_values, Z_A_r, label=r"Asimov $r$ (on/off)")
+    ax.plot(b_values, Z_A_rstar, "--", label=r"Asimov $r^\ast$ (on/off)")
+    ax.plot(b_values, Z_med, linestyle="None", marker="x", label=r"MC median $Z$")
+    ax.set_xscale("log")
+    ax.set_xlabel(r"$b$")
+    ax.set_ylabel(r"$r,\, r^\ast,\, Z$")
+    ax.set_ylim(bottom=-1, top=8)
+    ax.grid(True, which="both", ls="--", alpha=0.35)
+    ax.set_title(
+        rf"$s_\mathrm{{true}} = {s_true}$, "
+        rf"fixed $\sigma_b/b = {sigma_rel}$ "
+        r"(i.e. $\tau(b)=1/(\sigma_\mathrm{rel}^2\,b)$)"
+    )
+    ax.legend(frameon=False, loc="upper right")
+    plt.tight_layout()
+    if save_individual:
+        fname = outdir / f"onoff_bscan_s{_fmt(s_true)}_sigrel{_fmt(sigma_rel)}.pdf"
+        fig.savefig(fname)
+    pdf.savefig(fig)
+    plt.close(fig)
 
-    for (mode, s_idx, param_idx, b_idx), values in Z_groups.items():
-        if len(values) == 0:
-            continue
-        med = float(np.median(np.asarray(values, dtype=float)))
-        if mode == "tau":
-            Z_med_tau[s_idx, param_idx, b_idx] = med
-        else:
-            Z_med_sig[s_idx, param_idx, b_idx] = med
 
-    return Z_med_tau, Z_med_sig
-
-
-def make_plots(
-    cfg,
+def make_plots_onoff(
+    s_vec: np.ndarray,
+    tau_vec: np.ndarray,
+    rel_sig_vec: np.ndarray,
     b_values_tau,
     b_values_sig,
-    Z_med_tau,
-    Z_med_sig,
+    Z_A_r_tau: np.ndarray,
+    Z_A_rstar_tau: np.ndarray,
+    Z_A_r_sig: np.ndarray,
+    Z_A_rstar_sig: np.ndarray,
+    Z_med_tau: np.ndarray,
+    Z_med_sig: np.ndarray,
     outdir,
     summary_pdf_path,
     save_individual: bool,
 ):
-    s_vec = cfg["s_vec"]
-    tauVec = cfg["tauVec"]
-    relSigVec = cfg["relSigVec"]
-
-    Z_A_r_tau = np.zeros((len(s_vec), len(tauVec), len(b_values_tau)), dtype=float)
-    Z_A_rstar_tau = np.zeros_like(Z_A_r_tau)
-    Z_A_r_sig = np.zeros((len(s_vec), len(relSigVec), len(b_values_sig)), dtype=float)
-    Z_A_rstar_sig = np.zeros_like(Z_A_r_sig)
-
-    for s_idx, s_true in enumerate(s_vec):
-        for tau_idx, tau in enumerate(tauVec):
-            for b_idx, b in enumerate(b_values_tau):
-                asim = asimov_Zs_onoff(s_true, b, tau)
-                Z_A_r_tau[s_idx, tau_idx, b_idx] = asim["Z_A_r"]
-                Z_A_rstar_tau[s_idx, tau_idx, b_idx] = asim["Z_A_rstar"]
-
-        for sig_idx, sigma_rel in enumerate(relSigVec):
-            for b_idx, b in enumerate(b_values_sig):
-                tau_b = 1.0 / (sigma_rel**2 * b)
-                asim = asimov_Zs_onoff(s_true, b, tau_b)
-                Z_A_r_sig[s_idx, sig_idx, b_idx] = asim["Z_A_r"]
-                Z_A_rstar_sig[s_idx, sig_idx, b_idx] = asim["Z_A_rstar"]
-
+    """
+    Save combined PDF (and optional per-plot PDFs) for the on/off medsig scans.
+    """
     with PdfPages(summary_pdf_path) as pdf:
         for s_idx, s_true in enumerate(s_vec):
             # Fixed tau
-            for tau_idx, tau in enumerate(tauVec):
-                fig, ax = plt.subplots(figsize=(8, 5), dpi=150)
-                ax.plot(b_values_tau, Z_A_r_tau[s_idx, tau_idx], label=r"Asimov $r$ (on/off)")
-                ax.plot(
-                    b_values_tau,
-                    Z_A_rstar_tau[s_idx, tau_idx],
-                    "--",
-                    label=r"Asimov $r^\ast$ (on/off)",
+            for tau_idx, tau in enumerate(tau_vec):
+                plot_fixed_tau(
+                    s_true=float(s_true),
+                    tau=float(tau),
+                    b_values=b_values_tau,
+                    Z_A_r=Z_A_r_tau[s_idx, tau_idx],
+                    Z_A_rstar=Z_A_rstar_tau[s_idx, tau_idx],
+                    Z_med=Z_med_tau[s_idx, tau_idx],
+                    pdf=pdf,
+                    save_individual=save_individual,
+                    outdir=outdir,
                 )
-                ax.plot(
-                    b_values_tau,
-                    Z_med_tau[s_idx, tau_idx],
-                    linestyle="None",
-                    marker="x",
-                    label=r"MC median $Z$",
-                )
-                ax.set_xscale("log")
-                ax.set_xlabel(r"$b$")
-                ax.set_ylabel(r"$r,\, r^\ast,\, Z$")
-                ax.set_ylim(bottom=-1, top=6)
-                ax.grid(True, which="both", ls="--", alpha=0.35)
-                ax.set_title(rf"$s_\mathrm{{true}} = {s_true}$, fixed $\tau = {tau}$")
-                ax.legend(frameon=False, loc="upper right")
-                plt.tight_layout()
-                fname = outdir / f"onoff_bscan_s{_fmt(s_true)}_tau{_fmt(tau)}.pdf"
-                if save_individual:
-                    fig.savefig(fname)
-                pdf.savefig(fig)
-                plt.close(fig)
 
         # Fixed sigma_rel
         for s_idx, s_true in enumerate(s_vec):
-            for sig_idx, sigma_rel in enumerate(relSigVec):
-                fig, ax = plt.subplots(figsize=(8, 5), dpi=150)
-                ax.plot(b_values_sig, Z_A_r_sig[s_idx, sig_idx], label=r"Asimov $r$ (on/off)")
-                ax.plot(
-                    b_values_sig,
-                    Z_A_rstar_sig[s_idx, sig_idx],
-                    "--",
-                    label=r"Asimov $r^\ast$ (on/off)",
+            for sig_idx, sigma_rel in enumerate(rel_sig_vec):
+                plot_fixed_sigrel(
+                    s_true=float(s_true),
+                    sigma_rel=float(sigma_rel),
+                    b_values=b_values_sig,
+                    Z_A_r=Z_A_r_sig[s_idx, sig_idx],
+                    Z_A_rstar=Z_A_rstar_sig[s_idx, sig_idx],
+                    Z_med=Z_med_sig[s_idx, sig_idx],
+                    pdf=pdf,
+                    save_individual=save_individual,
+                    outdir=outdir,
                 )
-                ax.plot(
-                    b_values_sig,
-                    Z_med_sig[s_idx, sig_idx],
-                    linestyle="None",
-                    marker="x",
-                    label=r"MC median $Z$",
-                )
-                ax.set_xscale("log")
-                ax.set_xlabel(r"$b$")
-                ax.set_ylabel(r"$r,\, r^\ast,\, Z$")
-                ax.set_ylim(bottom=-1, top=8)
-                ax.grid(True, which="both", ls="--", alpha=0.35)
-                ax.set_title(
-                    rf"$s_\mathrm{{true}} = {s_true}$, "
-                    rf"fixed $\sigma_b/b = {sigma_rel}$ "
-                    r"(i.e. $\tau(b)=1/(\sigma_\mathrm{rel}^2\,b)$)"
-                )
-                ax.legend(frameon=False, loc="upper right")
-                plt.tight_layout()
-                fname = outdir / f"onoff_bscan_s{_fmt(s_true)}_sigrel{_fmt(sigma_rel)}.pdf"
-                if save_individual:
-                    fig.savefig(fname)
-                pdf.savefig(fig)
-                plt.close(fig)
 
     if save_individual:
         print(f"Saved individual plots under {outdir.resolve()}")
@@ -221,17 +221,36 @@ def main(cfg_path: str):
     summary_pdf_path = Path(cfg.get("out_summary_pdf", outdir / "onoff_medsig.pdf"))
     summary_pdf_path.parent.mkdir(parents=True, exist_ok=True)
 
-    Z_groups = run_outer_experiments(cfg, b_values_tau, b_values_sig)
-    Z_med_tau, Z_med_sig = median_grids(cfg, Z_groups, b_values_tau, b_values_sig)
-    make_plots(
-        cfg,
-        b_values_tau,
-        b_values_sig,
+    (
+        Z_A_r_tau,
+        Z_A_rstar_tau,
+        Z_A_r_sig,
+        Z_A_rstar_sig,
         Z_med_tau,
         Z_med_sig,
-        outdir,
-        summary_pdf_path,
-        save_individual,
+    ) = run_experiments_onoff(
+        s_vec=cfg["s_vec"],
+        tau_vec=cfg["tauVec"],
+        rel_sig_vec=cfg["relSigVec"],
+        b_values_tau=b_values_tau,
+        b_values_sig=b_values_sig,
+        cfg=cfg,
+    )
+    make_plots_onoff(
+        s_vec=cfg["s_vec"],
+        tau_vec=cfg["tauVec"],
+        rel_sig_vec=cfg["relSigVec"],
+        b_values_tau=b_values_tau,
+        b_values_sig=b_values_sig,
+        Z_A_r_tau=Z_A_r_tau,
+        Z_A_rstar_tau=Z_A_rstar_tau,
+        Z_A_r_sig=Z_A_r_sig,
+        Z_A_rstar_sig=Z_A_rstar_sig,
+        Z_med_tau=Z_med_tau,
+        Z_med_sig=Z_med_sig,
+        outdir=outdir,
+        summary_pdf_path=summary_pdf_path,
+        save_individual=save_individual,
     )
 
 

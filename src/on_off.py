@@ -369,7 +369,6 @@ def expected_significance_onoff(
 
 
 __all__ = [
-    "SQRT2",
     "norm_survival",
     "xlogy",
     "b_profiled",

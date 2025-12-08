@@ -12,7 +12,6 @@ from .on import (
     expected_significance_on,
 )
 from .on_off import (
-    SQRT2,
     norm_survival as norm_survival_onoff,
     xlogy,
     b_profiled,
@@ -40,7 +39,6 @@ __all__ = [
     "median_expected_significance_on",
     "expected_significance_on",
     # on/off
-    "SQRT2",
     "norm_survival_onoff",
     "xlogy",
     "b_profiled",

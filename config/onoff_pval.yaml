@@ -9,5 +9,5 @@ tau_vec: [0.5, 1.0, 2.0]
 sigrel: 0.001
 
 # Output PDF path
-out_pdf: "plots/onoff_pval_plots.pdf"
+out_pdf: "plots/onoff_pval.pdf"
 individual_plots: False

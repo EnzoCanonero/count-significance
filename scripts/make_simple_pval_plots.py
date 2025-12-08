@@ -6,6 +6,7 @@ import math
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.backends.backend_pdf import PdfPages
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -19,6 +20,140 @@ def _fmt(x):
     return f"{x:g}".replace(".", "p")
 
 
+def compute_pvalues_on(s_vec: np.ndarray, b_vec: np.ndarray):
+    """Compute p-values and relative differences for all (s0, b) combinations."""
+    combos = np.array(np.meshgrid(s_vec, b_vec)).T.reshape(-1, 2)
+    results = []
+    for s0, b in combos:
+        s0f = float(s0)
+        bf = float(b)
+        mu0 = s0f + bf
+        n_min = 0
+        n_max = int(math.ceil(mu0 + 5.0 * math.sqrt(mu0)))
+        n_vals = np.arange(n_min, n_max + 1, dtype=int)
+
+        out = pvals_on(s0f, bf, n_vals)
+        p_true = np.asarray(out["p_true"], dtype=float)
+        p_r = np.asarray(out["p_r"], dtype=float)
+        p_rstar = np.asarray(out["p_rstar"], dtype=float)
+
+        denom = np.clip(p_true, 1e-16, None)
+        rel_r = np.maximum(np.abs(p_r - p_true) / denom, 1e-16)
+        rel_rstar = np.maximum(np.abs(p_rstar - p_true) / denom, 1e-16)
+        p_true = np.maximum(p_true, 1e-16)
+        p_r = np.maximum(p_r, 1e-16)
+        p_rstar = np.maximum(p_rstar, 1e-16)
+
+        results.append(
+            {
+                "s0": s0f,
+                "b": bf,
+                "mu0": mu0,
+                "n_vals": n_vals,
+                "n_min": n_min,
+                "n_max": n_max,
+                "p_true": p_true,
+                "p_r": p_r,
+                "p_rstar": p_rstar,
+                "rel_r": rel_r,
+                "rel_rstar": rel_rstar,
+            }
+        )
+    return results
+
+
+def make_plot_on(
+    results: list,
+    out_pdf: Path,
+    save_individual: bool,
+):
+    """Render the p-value and relative-diff panels for all (s0, b) configurations."""
+    with PdfPages(out_pdf) as pdf:
+        for res in results:
+            n_vals = res["n_vals"]
+            n_min = res["n_min"]
+            n_max = res["n_max"]
+            s0f = res["s0"]
+            bf = res["b"]
+            mu0 = res["mu0"]
+            p_true = res["p_true"]
+            p_r = res["p_r"]
+            p_rstar = res["p_rstar"]
+            rel_r = res["rel_r"]
+            rel_rstar = res["rel_rstar"]
+
+            fig, (ax_top, ax_bot) = plt.subplots(
+                2,
+                1,
+                figsize=(12, 8),
+                sharex=True,
+                gridspec_kw={"height_ratios": [3.5, 1.2]},
+            )
+
+            ax_top.semilogy(
+                n_vals,
+                p_true,
+                marker="x",
+                linestyle="None",
+                ms=4,
+                label="MC",
+                color="tab:green",
+            )
+            ax_top.semilogy(
+                n_vals,
+                p_r,
+                marker="o",
+                linestyle="None",
+                ms=5,
+                label="1 − Φ(r)",
+                color="tab:blue",
+            )
+            ax_top.semilogy(
+                n_vals,
+                p_rstar,
+                marker="^",
+                linestyle="None",
+                ms=5,
+                label="1 − Φ(r*)",
+                color="tab:orange",
+            )
+            ax_top.set_ylabel("p-value (upper tail)")
+            ax_top.set_xlim(n_min - 0.5, n_max + 0.5)
+            ax_top.set_title(f"s₀ = {s0f},  b = {bf},  μ₀ = s₀ + b = {mu0}", fontsize=13)
+            ax_top.grid(True, which="both", alpha=0.25)
+            ax_top.legend()
+
+            ax_bot.semilogy(
+                n_vals,
+                rel_r,
+                marker="o",
+                linestyle="None",
+                ms=4,
+                label=r"|r − MC| / MC",
+                color="tab:blue",
+            )
+            ax_bot.semilogy(
+                n_vals,
+                rel_rstar,
+                marker="^",
+                linestyle="None",
+                ms=4,
+                label=r"|r* − MC| / MC",
+                color="tab:orange",
+            )
+            ax_bot.set_xlabel("Observed count n")
+            ax_bot.set_ylabel("rel. abs. diff")
+            ax_bot.grid(True, which="both", alpha=0.25)
+            ax_bot.legend()
+
+            plt.tight_layout()
+            if save_individual:
+                fname = out_pdf.parent / f"simple_pval_s{_fmt(s0f)}_b{_fmt(bf)}.pdf"
+                fig.savefig(fname)
+            pdf.savefig(fig)
+            plt.close(fig)
+
+
 def main(cfg_path: str):
     cfg = load_yaml(cfg_path)
     b_vec = np.asarray(cfg["b_vec"], dtype=float)
@@ -28,75 +163,8 @@ def main(cfg_path: str):
 
     out_pdf.parent.mkdir(parents=True, exist_ok=True)
 
-    from matplotlib.backends.backend_pdf import PdfPages
-
-    with PdfPages(out_pdf) as pdf:
-        for b_fixed in b_vec:
-            nrows = len(s0_vec)
-            fig_height = 3.8 * nrows + 1.0
-            fig, axes = plt.subplots(
-                nrows=nrows, ncols=1, figsize=(14, fig_height), sharex=False
-            )
-            if nrows == 1:
-                axes = [axes]
-
-            for ax, s0 in zip(axes, s0_vec):
-                s0f = float(s0)
-                bf = float(b_fixed)
-                mu0 = s0f + bf
-                n_min = 0
-                n_max = int(math.ceil(mu0 + 5.0 * math.sqrt(mu0)))
-                n_vals = np.arange(n_min, n_max + 1, dtype=int)
-
-                out = pvals_on(s0f, bf, n_vals)
-                p_true = out["p_true"]
-                p_r = out["p_r"]
-                p_rstar = out["p_rstar"]
-
-                ax.plot(
-                    n_vals,
-                    np.asarray(p_true, dtype=float),
-                    marker="x",
-                    linestyle="None",
-                    label="MC",
-                    color="tab:green",
-                )
-                ax.plot(
-                    n_vals,
-                    np.asarray(p_r, dtype=float),
-                    marker="o",
-                    linestyle="None",
-                    label="1 − Φ(r)",
-                    color="tab:blue",
-                )
-                ax.plot(
-                    n_vals,
-                    np.asarray(p_rstar, dtype=float),
-                    marker="p",
-                    linestyle="None",
-                    label="1 − Φ(r*)",
-                    color="tab:orange",
-                )
-
-                ax.set_yscale("log")
-                ax.set_ylabel("p-value", fontsize=12)
-                mu0 = s0 + b_fixed
-                ax.set_title(
-                    f"s₀ = {s0},  b = {b_fixed},  μ₀ = s₀ + b = {mu0}",
-                    fontsize=13,
-                )
-                ax.grid(True, which="both", linestyle=":", alpha=0.5)
-                ax.tick_params(axis="both", labelsize=11)
-
-            axes[-1].set_xlabel("Observed count n", fontsize=12)
-            axes[0].legend(fontsize=11)
-
-            plt.tight_layout()
-            if save_individual:
-                fname = out_pdf.parent / f"simple_pval_b{_fmt(b_fixed)}.pdf"
-                fig.savefig(fname)
-            pdf.savefig(fig)
-            plt.close(fig)
+    results = compute_pvalues_on(s0_vec, b_vec)
+    make_plot_on(results, out_pdf, save_individual)
 
     print(f"Saved all plots to: {out_pdf.resolve()}")
 
