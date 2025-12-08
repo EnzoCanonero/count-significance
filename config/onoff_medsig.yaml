@@ -21,7 +21,7 @@ min_toys: 500
 max_toys: 100000
 
 # Outer pseudo-experiments (median Z estimation)
-n_outer: 150          # set to 1000 to mirror Condor
+n_outer: 300          # set to 1000 to mirror Condor
 outer_seed: 12345
 inner_seed: 67890
 

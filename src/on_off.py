@@ -171,6 +171,15 @@ def required_toys_for_Z_precision(
 
     solve for N, then clip to [min_toys, max_toys].
     """
+    min_toys = int(min_toys)
+    max_toys = int(max_toys)
+    if max_toys < 1:
+        max_toys = 1
+    if min_toys < 1:
+        min_toys = 1
+    if min_toys > max_toys:
+        min_toys = max_toys
+
     Z = float(r_obs)
     if not np.isfinite(Z) or Z <= 0.0:
         return int(min_toys)
@@ -188,11 +197,11 @@ def required_toys_for_Z_precision(
     N = (dZdp * dZdp) * p * (1.0 - p) / (Z * Z * sigrel * sigrel)
 
     if (not np.isfinite(N)) or N <= 0.0:
-        N = min_toys
+        N = max_toys
 
     N_int = int(math.ceil(N))
-    N_int = max(N_int, int(min_toys))
     N_int = min(N_int, int(max_toys))
+    N_int = max(N_int, int(min_toys))
     return N_int
 
 # Unified function to compute p-values using r, r*, and MC simulations
@@ -303,7 +312,7 @@ def median_expected_significance_onoff(
         )
 
         p = float(out["p_mc"])
-        res = 1.0 / float(min_toys)
+        res = 1.0 / float(max_toys)
 
         p = min(max(p, res), 1.0 - res)
 
