@@ -29,19 +29,24 @@ def run_experiments_on(
     s_vec: np.ndarray, b_values: np.ndarray, n_outer: int, seed: int
 ):
     """
-    Compute Asimov and MC-median Z grids for the simple-counting case.
+    Compute Asimov and MC-median Z grids for the simple-counting case via expected_significance_on.
 
-    Returns arrays shaped (len(s_vec), len(b_values)).
+    Returns (Z_A_r, Z_A_rstar, Z_mc_median) shaped (len(s_vec), len(b_values)).
     """
+    seed = int(seed)
+    n_outer = int(n_outer)
+
+    # Vectorised grids for expected_significance_on: shape (S, B)
     s_grid = s_vec[:, None]
     b_grid = b_values[None, :]
-    out = expected_significance_on(
+
+    res = expected_significance_on(
         s_true=s_grid,
         b=b_grid,
         n_outer=n_outer,
         seed=seed,
     )
-    return out["Z_A_r"], out["Z_A_rstar"], out["Z_mc_median"]
+    return res["Z_A_r"], res["Z_A_rstar"], res["Z_mc_median"]
 
 
 def make_plots_on(
@@ -116,6 +121,8 @@ def main(cfg_path: str):
         save_individual=save_individual,
     )
 
+    if save_individual:
+        print(f"Saved individual plots under: {out_pdf.parent.resolve()}")
     print(f"Saved all plots to: {out_pdf.resolve()}")
 
 

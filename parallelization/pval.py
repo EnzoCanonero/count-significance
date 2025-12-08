@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import yaml
+from scipy.stats import norm
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -49,8 +50,7 @@ def main():
 
     sigrel_Z = cfg["sigrel_Z"]
     min_toys = cfg.get("min_toys", 10_000)
-    max_toys_tau = cfg.get("max_toys_tau", 2_000_000)
-    max_toys_sig = cfg.get("max_toys_sig", 10_000_000)
+    max_toys = cfg.get("max_toys", 2_000_000)
 
     points = []
 
@@ -70,7 +70,7 @@ def main():
                     m=m_obs,
                     sigrel=sigrel_Z,
                     min_toys=min_toys,
-                    max_toys=max_toys_tau,
+                    max_toys=max_toys,
                     seed=inner_seed,
                 )
 
@@ -109,7 +109,7 @@ def main():
                     m=m_obs,
                     sigrel=sigrel_Z,
                     min_toys=min_toys,
-                    max_toys=max_toys_sig,
+                    max_toys=max_toys,
                     seed=inner_seed,
                 )
 

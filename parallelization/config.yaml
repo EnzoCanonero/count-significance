@@ -19,8 +19,7 @@ sigrel_Z: 0.01
 
 # Inner toy ranges
 min_toys: 1000
-max_toys_tau: 10000000
-max_toys_sig: 10000000
+max_toys: 10000000
 
 # RNG seeds (you can tune)
 outer_seed: 12345
@@ -28,3 +27,5 @@ inner_seed: 67890
 
 # Output folder for per-job JSONs and plots
 outdir: "output"
+out_summary_pdf: "output/onoff_medsig.pdf"
+individual_plots: False
