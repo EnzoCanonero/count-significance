@@ -7,3 +7,4 @@ b_vec: [0, 1, 2, 5]
 # Output PDF path
 out_pdf: "plots/simple_pval.pdf"
 individual_plots: False
+ratio_plots: False

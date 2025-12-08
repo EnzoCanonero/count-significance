@@ -21,17 +21,21 @@ def _fmt(x):
 
 def compute_pvalues_onoff(s0: float, b: float, tau: float, sigrel: float):
     """Compute p-values and relative differences for all n0 and candidate m0 values."""
+    eps = 1e-16
+
     # Poisson means for the signal (ON) and control (OFF) regions under s0, b, τ
-    mu_s = s0 + b
-    mu_b = tau * b
+    mu_s = float(s0 + b)
+    mu_b = float(tau * b)
 
     # Compute candidate OFF counts m0 corresponding to μ_b ± 1σ and μ_b itself,
     # with expectations floored to non-negative integers.
-    m0_raw = np.array([
-        max(0, int(np.floor(mu_b - np.sqrt(mu_b)))),
-        max(0, int(np.floor(mu_b))),
-        max(0, int(np.floor(mu_b + np.sqrt(mu_b)))),
-    ])
+    m0_raw = np.array(
+        [
+            max(0, int(np.floor(mu_b - np.sqrt(mu_b)))),
+            max(0, int(np.floor(mu_b))),
+            max(0, int(np.floor(mu_b + np.sqrt(mu_b)))),
+        ]
+    )
 
     # Retain only distinct m0 values, sorted for consistency
     m0_unique = np.unique(np.sort(m0_raw))
@@ -46,9 +50,9 @@ def compute_pvalues_onoff(s0: float, b: float, tau: float, sigrel: float):
 
     # Define the scan range for ON counts n0:
     # from n = 0 up to μ_s + 5√μ_s (rounded up), ensuring at least one bin.
-    nmin = 0
-    nmax = max(nmin, int(np.ceil(mu_s + 5.0 * np.sqrt(mu_s))))
-    n0_vals = np.arange(nmin, nmax + 1, dtype=int)
+    n_min = 0
+    n_max = max(n_min, int(np.ceil(mu_s + 5.0 * np.sqrt(mu_s))))
+    n_vals = np.arange(n_min, n_max + 1, dtype=int)
 
     results = []
 
@@ -56,7 +60,7 @@ def compute_pvalues_onoff(s0: float, b: float, tau: float, sigrel: float):
     for m0 in m0_list:
         p_r, p_rstar, p_mc, p_mc_se = [], [], [], []
 
-        for n0 in n0_vals:
+        for n0 in n_vals:
             out = pvals_onoff(s0, b, tau, n0, m0, sigrel=sigrel)
             p_r.append(out["p_r"])
             p_rstar.append(out["p_rstar"])
@@ -68,20 +72,19 @@ def compute_pvalues_onoff(s0: float, b: float, tau: float, sigrel: float):
         p_mc = np.asarray(p_mc, dtype=float)
         p_err = np.asarray(p_mc_se, dtype=float)
 
-        denom = np.clip(p_mc, 1e-16, None)
+        denom = np.clip(p_mc, eps, None)
         rel_r = np.abs(p_r - p_mc) / denom
         rel_rstar = np.abs(p_rstar - p_mc) / denom
 
-        eps = 1e-16
         results.append(
             {
                 "s0": float(s0),
                 "b": float(b),
                 "tau": float(tau),
                 "m0": int(m0),
-                "n_vals": n0_vals,
-                "n_min": nmin,
-                "n_max": nmax,
+                "n_vals": n_vals,
+                "n_min": n_min,
+                "n_max": n_max,
                 "p_r": np.maximum(p_r, eps),
                 "p_rstar": np.maximum(p_rstar, eps),
                 "p_mc": np.maximum(p_mc, eps),
@@ -99,29 +102,40 @@ def make_plots_onoff(
     sigrel: float,
     out_pdf: Path,
     save_individual: bool,
+    include_ratio: bool,
 ):
     """Render p-value and relative-diff panels for all on/off configurations."""
     with PdfPages(out_pdf) as pdf:
         for res in results:
-            n0_vals = res["n_vals"]
-            nmin = res["n_min"]
-            nmax = res["n_max"]
             s0 = res["s0"]
             b = res["b"]
             tau = res["tau"]
             m0 = res["m0"]
+            n_vals = res["n_vals"]
+            n_min = res["n_min"]
+            n_max = res["n_max"]
+            p_r = res["p_r"]
+            p_rstar = res["p_rstar"]
+            p_mc = res["p_mc"]
+            p_err = res["p_err"]
+            rel_r = res["rel_r"]
+            rel_rstar = res["rel_rstar"]
 
-            fig, (ax_top, ax_bot) = plt.subplots(
-                2,
-                1,
-                figsize=(12, 9),
-                sharex=True,
-                gridspec_kw={"height_ratios": [3.5, 1.2]},
-            )
+            if include_ratio:
+                fig, (ax_top, ax_bot) = plt.subplots(
+                    2,
+                    1,
+                    figsize=(12, 9),
+                    sharex=True,
+                    gridspec_kw={"height_ratios": [3.5, 1.2]},
+                )
+            else:
+                fig, ax_top = plt.subplots(figsize=(12, 6))
+                ax_bot = None
 
             ax_top.semilogy(
-                n0_vals,
-                res["p_r"],
+                n_vals,
+                p_r,
                 marker="o",
                 linestyle="None",
                 ms=5,
@@ -129,8 +143,8 @@ def make_plots_onoff(
                 color="tab:blue",
             )
             ax_top.semilogy(
-                n0_vals,
-                res["p_rstar"],
+                n_vals,
+                p_rstar,
                 marker="^",
                 linestyle="None",
                 ms=5,
@@ -138,9 +152,9 @@ def make_plots_onoff(
                 color="tab:orange",
             )
             ax_top.errorbar(
-                n0_vals,
-                res["p_mc"],
-                yerr=res["p_err"],
+                n_vals,
+                p_mc,
+                yerr=p_err,
                 fmt="x",
                 ms=4,
                 lw=1,
@@ -149,35 +163,38 @@ def make_plots_onoff(
                 color="tab:green",
             )
             ax_top.set_ylabel("p-value (upper tail)")
-            ax_top.set_xlim(nmin - 0.5, nmax + 0.5)
+            ax_top.set_xlim(n_min - 0.5, n_max + 0.5)
             ax_top.set_title(
                 rf"$m_0={m0}$,  $s_0={s0}$,  $b={b}$,  $\tau={tau}$,  $\sigma_{{\mathrm{{rel}}}}={sigrel}$"
             )
             ax_top.grid(True, which="both", alpha=0.25)
             ax_top.legend()
 
-            ax_bot.semilogy(
-                n0_vals,
-                res["rel_r"],
-                marker="o",
-                linestyle="None",
-                ms=4,
-                label=r"|r − MC| / MC",
-                color="tab:blue",
-            )
-            ax_bot.semilogy(
-                n0_vals,
-                res["rel_rstar"],
-                marker="^",
-                linestyle="None",
-                ms=4,
-                label=r"|r* − MC| / MC",
-                color="tab:orange",
-            )
-            ax_bot.set_xlabel(r"$n_0$ (observed ON counts)")
-            ax_bot.set_ylabel("rel. abs. diff")
-            ax_bot.grid(True, which="both", alpha=0.25)
-            ax_bot.legend()
+            if include_ratio:
+                ax_bot.semilogy(
+                    n_vals,
+                    rel_r,
+                    marker="o",
+                    linestyle="None",
+                    ms=4,
+                    label=r"|r − MC| / MC",
+                    color="tab:blue",
+                )
+                ax_bot.semilogy(
+                    n_vals,
+                    rel_rstar,
+                    marker="^",
+                    linestyle="None",
+                    ms=4,
+                    label=r"|r* − MC| / MC",
+                    color="tab:orange",
+                )
+                ax_bot.set_xlabel(r"$n_0$ (observed ON counts)")
+                ax_bot.set_ylabel("rel. abs. diff")
+                ax_bot.grid(True, which="both", alpha=0.25)
+                ax_bot.legend()
+            else:
+                ax_top.set_xlabel(r"$n_0$ (observed ON counts)")
 
             plt.tight_layout()
             if save_individual:
@@ -189,21 +206,22 @@ def make_plots_onoff(
 
 def main(cfg_path: str):
     cfg = load_yaml(cfg_path)
-    s_vec = np.asarray(cfg["s_vec"], dtype=float)
+    s0_vec = np.asarray(cfg["s_vec"], dtype=float)
     b_vec = np.asarray(cfg["b_vec"], dtype=float)
     tau_vec = np.asarray(cfg["tau_vec"], dtype=float)
     sigrel = float(cfg["sigrel"])
     out_pdf = Path(cfg["out_pdf"])
     save_individual = bool(cfg.get("individual_plots", False))
+    include_ratio = bool(cfg.get("ratio_plots", False))
 
     out_pdf.parent.mkdir(parents=True, exist_ok=True)
 
-    combos = np.array(np.meshgrid(s_vec, b_vec, tau_vec)).T.reshape(-1, 3)
+    combos = np.array(np.meshgrid(s0_vec, b_vec, tau_vec)).T.reshape(-1, 3)
     all_results = []
     for s0, b, tau in combos:
         all_results.extend(compute_pvalues_onoff(float(s0), float(b), float(tau), sigrel))
 
-    make_plots_onoff(all_results, sigrel, out_pdf, save_individual)
+    make_plots_onoff(all_results, sigrel, out_pdf, save_individual, include_ratio)
 
     print(f"Saved all plots to: {out_pdf.resolve()}")
 
