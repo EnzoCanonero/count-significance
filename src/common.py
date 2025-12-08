@@ -1,5 +1,6 @@
 from pathlib import Path
-import math
+import numpy as np
+from scipy.special import erfc
 import yaml
 
 
@@ -13,9 +14,12 @@ def ensure_dir(path: Path):
     return path
 
 
-def norm_survival(x: float) -> float:
-    """One-sided upper tail 1 - Phi(x)."""
-    return 0.5 * math.erfc(float(x) / math.sqrt(2.0))
+def norm_survival(x):
+    """
+    One-sided upper tail 1 - Phi(x), accepts scalar or array-like.
+    """
+    arr = np.asarray(x, dtype=float)
+    return 0.5 * erfc(arr / np.sqrt(2.0))
 
 
 __all__ = ["load_yaml", "ensure_dir", "norm_survival"]
