@@ -6,7 +6,7 @@ Structure (flattened modules, scripts, and configs):
 - `src/on.py`, `src/on_off.py`: model-specific math/stats helpers; `src/common.py` for small utilities.
 - `config/`: YAML configs for each plotting script (`simple_pval.yaml`, `simple_medsig.yaml`, `onoff_pval.yaml`, `onoff_medsig.yaml`).
 - `scripts/`: CLIs to generate plots (see usage below).
-- `notebooks/playground.ipynb`: lightweight demo for single p-value/medsig plots (interactive, not batch).
+- `notebooks/on_playgroung.ipynb`, `notebooks/onoff_playground.ipynb`: two lightweight tutorial notebooks.
 - `parallelization/`: Condor-friendly on/off medsig sweep (uses `src.on_off`).
 - `plots/`: output PDFs.
 
