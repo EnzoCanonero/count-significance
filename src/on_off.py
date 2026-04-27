@@ -320,7 +320,7 @@ def median_expected_significance_onoff(
 
     Z = norm.isf(p_mc)
 
-    return float(np.median(Z))
+    return float(np.median(Z)), float(np.mean(Z))
 
 
 def expected_significance_onoff(
@@ -352,10 +352,11 @@ def expected_significance_onoff(
     Z_A_r = np.empty_like(flat_s, dtype=float)
     Z_A_rstar = np.empty_like(flat_s, dtype=float)
     Z_mc_median = np.empty_like(flat_s, dtype=float)
+    Z_mc_mean = np.empty_like(flat_s, dtype=float)
 
     for i, (s_val, b_val, tau_val) in enumerate(zip(flat_s, flat_b, flat_tau)):
         asim = asimov_Zs_onoff(float(s_val), float(b_val), float(tau_val))
-        mc = median_expected_significance_onoff(
+        mc_median, mc_mean = median_expected_significance_onoff(
             float(s_val),
             float(b_val),
             float(tau_val),
@@ -367,13 +368,15 @@ def expected_significance_onoff(
         )
         Z_A_r[i] = asim["Z_A_r"]
         Z_A_rstar[i] = asim["Z_A_rstar"]
-        Z_mc_median[i] = mc
+        Z_mc_median[i] = mc_median
+        Z_mc_mean[i] = mc_mean
 
     shape = s_arr.shape
     return {
         "Z_A_r": Z_A_r.reshape(shape),
         "Z_A_rstar": Z_A_rstar.reshape(shape),
         "Z_mc_median": Z_mc_median.reshape(shape),
+        "Z_mc_mean": Z_mc_mean.reshape(shape),
     }
 
 

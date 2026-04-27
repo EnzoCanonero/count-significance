@@ -93,7 +93,7 @@ def median_expected_significance_on(
     p_tail = poisson_tail_on(s0=0.0, b=b, n=n_obs)
     p_tail = np.clip(p_tail, 1e-16, 1.0 - 1e-16)
     Z = norm.isf(p_tail)
-    return float(np.median(Z))
+    return float(np.median(Z)), float(np.mean(Z))
 
 
 def expected_significance_on(
@@ -113,6 +113,7 @@ def expected_significance_on(
 
     rng = np.random.default_rng(seed)
     medians = np.empty_like(flat_s, dtype=float)
+    means = np.empty_like(flat_s, dtype=float)
     Z_A_r = np.empty_like(flat_s, dtype=float)
     Z_A_rstar = np.empty_like(flat_s, dtype=float)
 
@@ -120,7 +121,7 @@ def expected_significance_on(
         nA = float(s_val + b_val)
         Z_A_r[i] = r_stat_on(0.0, b_val, nA)
         Z_A_rstar[i] = r_star_on(0.0, b_val, nA)
-        medians[i] = median_expected_significance_on(
+        medians[i], means[i] = median_expected_significance_on(
             s_true=float(s_val),
             b=float(b_val),
             n_outer=n_outer,
@@ -131,6 +132,7 @@ def expected_significance_on(
         "Z_A_r": Z_A_r.reshape(s_arr.shape),
         "Z_A_rstar": Z_A_rstar.reshape(s_arr.shape),
         "Z_mc_median": medians.reshape(s_arr.shape),
+        "Z_mc_mean": means.reshape(s_arr.shape),
     }
 
 

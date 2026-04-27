@@ -46,7 +46,7 @@ def run_experiments_on(
         n_outer=n_outer,
         seed=seed,
     )
-    return res["Z_A_r"], res["Z_A_rstar"], res["Z_mc_median"]
+    return res["Z_A_r"], res["Z_A_rstar"], res["Z_mc_median"], res["Z_mc_mean"]
 
 
 def make_plots_on(
@@ -55,27 +55,41 @@ def make_plots_on(
     Z_A_r: np.ndarray,
     Z_A_rstar: np.ndarray,
     Z_mc_median: np.ndarray,
+    Z_mc_mean: np.ndarray,
     out_pdf: Path,
     save_individual: bool,
+    mc_statistics: list,
+    asimov_statistics: list,
 ):
     """Save combined PDF (and optional per-plot PDFs) for the simple-counting medsig scans."""
     with PdfPages(out_pdf) as pdf:
         for idx, s_true in enumerate(s_vec):
             fig, ax = plt.subplots(figsize=(9, 5), dpi=150)
-            ax.plot(b_values, Z_A_r[idx], label=fr"Asimov r, s_true={s_true}")
-            ax.plot(
-                b_values,
-                Z_A_rstar[idx],
-                linestyle="--",
-                label=fr"Asimov r*, s_true={s_true}",
-            )
-            ax.plot(
-                b_values,
-                Z_mc_median[idx],
-                linestyle="None",
-                marker="x",
-                label=fr"MC median Z, s_true={s_true}",
-            )
+            if "r" in asimov_statistics:
+                ax.plot(b_values, Z_A_r[idx], label=fr"Asimov $r$, $s_\mathrm{{true}}={s_true}$")
+            if "rstar" in asimov_statistics:
+                ax.plot(
+                    b_values,
+                    Z_A_rstar[idx],
+                    linestyle="--",
+                    label=fr"Asimov $r^\ast$, $s_\mathrm{{true}}={s_true}$",
+                )
+            if "median" in mc_statistics:
+                ax.plot(
+                    b_values,
+                    Z_mc_median[idx],
+                    linestyle="None",
+                    marker="x",
+                    label=fr"MC median $Z$, $s_\mathrm{{true}}={s_true}$",
+                )
+            if "mean" in mc_statistics:
+                ax.plot(
+                    b_values,
+                    Z_mc_mean[idx],
+                    linestyle="None",
+                    marker="+",
+                    label=fr"MC mean $Z$, $s_\mathrm{{true}}={s_true}$",
+                )
 
             ax.set_xscale("log")
             ax.set_xlabel("b")
@@ -83,7 +97,7 @@ def make_plots_on(
             ax.set_ylim(bottom=-1)
             ax.grid(True, which="both", ls="--", alpha=0.35)
             ax.legend(fontsize=9)
-            ax.set_title(fr"Asimov vs MC median Z, $s_{{\mathrm{{true}}}} = {s_true}$")
+            ax.set_title(fr"$s_{{\mathrm{{true}}}} = {s_true}$")
 
             plt.tight_layout()
             if save_individual:
@@ -104,10 +118,13 @@ def main(cfg_path: str):
     out_pdf = Path(cfg["out_pdf"])
     save_individual = bool(cfg.get("individual_plots", False))
 
+    mc_statistics = cfg.get("mc_statistics", ["median"])
+    asimov_statistics = cfg.get("asimov_statistics", ["r", "rstar"])
+
     out_pdf.parent.mkdir(parents=True, exist_ok=True)
     b_values = np.logspace(np.log10(b_min), np.log10(b_max), n_bpts)
 
-    Z_A_r, Z_A_rstar, Z_mc_median = run_experiments_on(
+    Z_A_r, Z_A_rstar, Z_mc_median, Z_mc_mean = run_experiments_on(
         s_vec=s_vec, b_values=b_values, n_outer=n_outer, seed=seed
     )
 
@@ -117,8 +134,11 @@ def main(cfg_path: str):
         Z_A_r=Z_A_r,
         Z_A_rstar=Z_A_rstar,
         Z_mc_median=Z_mc_median,
+        Z_mc_mean=Z_mc_mean,
         out_pdf=out_pdf,
         save_individual=save_individual,
+        mc_statistics=mc_statistics,
+        asimov_statistics=asimov_statistics,
     )
 
     if save_individual:

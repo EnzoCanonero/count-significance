@@ -10,6 +10,11 @@ n_bpts: 100
 n_outer: 10000          # outer toys to build Z distribution
 seed: 12345           # RNG seed for reproducibility
 
+# Which curves to include (options: median, mean; empty list = none)
+mc_statistics: [median, mean]
+# Which Asimov curves to include (options: r, rstar; empty list = none)
+asimov_statistics: [r, rstar]
+
 # Output
 out_pdf: "plots/simple_medsig.pdf"
 individual_plots: False

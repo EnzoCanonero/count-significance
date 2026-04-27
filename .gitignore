@@ -23,3 +23,8 @@ venv/
 
 # Python packaging artifacts
 *.egg-info/
+
+# Condor job outputs
+parallelization/logs/
+parallelization/output/
+parallelization/onoff_medsig.pdf

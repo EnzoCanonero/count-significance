@@ -84,6 +84,8 @@ def run_experiments_onoff(
         res_sig["Z_A_rstar"],
         res_tau["Z_mc_median"],
         res_sig["Z_mc_median"],
+        res_tau["Z_mc_mean"],
+        res_sig["Z_mc_mean"],
     )
 
 
@@ -99,9 +101,13 @@ def make_plots_onoff(
     Z_A_rstar_sig: np.ndarray,
     Z_med_tau: np.ndarray,
     Z_med_sig: np.ndarray,
+    Z_mean_tau: np.ndarray,
+    Z_mean_sig: np.ndarray,
     out_pdf: Path,
     save_individual: bool,
     outdir: Path,
+    mc_statistics: list,
+    asimov_statistics: list,
 ):
     """
     Save combined PDF (and optional per-plot PDFs) for the on/off medsig scans.
@@ -110,20 +116,31 @@ def make_plots_onoff(
         for s_idx, s_true in enumerate(s_vec):
             for tau_idx, tau in enumerate(tau_vec):
                 fig, ax = plt.subplots(figsize=(8, 5), dpi=150)
-                ax.plot(b_values_tau, Z_A_r_tau[s_idx, tau_idx], label=r"Asimov $r$ (on/off)")
-                ax.plot(
-                    b_values_tau,
-                    Z_A_rstar_tau[s_idx, tau_idx],
-                    "--",
-                    label=r"Asimov $r^\ast$ (on/off)",
-                )
-                ax.plot(
-                    b_values_tau,
-                    Z_med_tau[s_idx, tau_idx],
-                    linestyle="None",
-                    marker="x",
-                    label=r"MC median $Z$",
-                )
+                if "r" in asimov_statistics:
+                    ax.plot(b_values_tau, Z_A_r_tau[s_idx, tau_idx], label=r"Asimov $r$ (on/off)")
+                if "rstar" in asimov_statistics:
+                    ax.plot(
+                        b_values_tau,
+                        Z_A_rstar_tau[s_idx, tau_idx],
+                        "--",
+                        label=r"Asimov $r^\ast$ (on/off)",
+                    )
+                if "median" in mc_statistics:
+                    ax.plot(
+                        b_values_tau,
+                        Z_med_tau[s_idx, tau_idx],
+                        linestyle="None",
+                        marker="x",
+                        label=r"MC median $Z$",
+                    )
+                if "mean" in mc_statistics:
+                    ax.plot(
+                        b_values_tau,
+                        Z_mean_tau[s_idx, tau_idx],
+                        linestyle="None",
+                        marker="+",
+                        label=r"MC mean $Z$",
+                    )
                 ax.set_xscale("log")
                 ax.set_xlabel(r"$b$")
                 ax.set_ylabel(r"$r,\, r^\ast,\, Z$")
@@ -140,20 +157,31 @@ def make_plots_onoff(
 
             for sig_idx, sigma_rel in enumerate(rel_sig_vec):
                 fig, ax = plt.subplots(figsize=(8, 5), dpi=150)
-                ax.plot(b_values_sig, Z_A_r_sig[s_idx, sig_idx], label=r"Asimov $r$ (on/off)")
-                ax.plot(
-                    b_values_sig,
-                    Z_A_rstar_sig[s_idx, sig_idx],
-                    "--",
-                    label=r"Asimov $r^\ast$ (on/off)",
-                )
-                ax.plot(
-                    b_values_sig,
-                    Z_med_sig[s_idx, sig_idx],
-                    linestyle="None",
-                    marker="x",
-                    label=r"MC median $Z$",
-                )
+                if "r" in asimov_statistics:
+                    ax.plot(b_values_sig, Z_A_r_sig[s_idx, sig_idx], label=r"Asimov $r$ (on/off)")
+                if "rstar" in asimov_statistics:
+                    ax.plot(
+                        b_values_sig,
+                        Z_A_rstar_sig[s_idx, sig_idx],
+                        "--",
+                        label=r"Asimov $r^\ast$ (on/off)",
+                    )
+                if "median" in mc_statistics:
+                    ax.plot(
+                        b_values_sig,
+                        Z_med_sig[s_idx, sig_idx],
+                        linestyle="None",
+                        marker="x",
+                        label=r"MC median $Z$",
+                    )
+                if "mean" in mc_statistics:
+                    ax.plot(
+                        b_values_sig,
+                        Z_mean_sig[s_idx, sig_idx],
+                        linestyle="None",
+                        marker="+",
+                        label=r"MC mean $Z$",
+                    )
                 ax.set_xscale("log")
                 ax.set_xlabel(r"$b$")
                 ax.set_ylabel(r"$r,\, r^\ast,\, Z$")
@@ -194,6 +222,8 @@ def main(cfg_path: str):
 
     outdir = Path(cfg.get("outdir", "plots"))
     save_individual = bool(cfg.get("individual_plots", False))
+    mc_statistics = cfg.get("mc_statistics", ["median"])
+    asimov_statistics = cfg.get("asimov_statistics", ["r", "rstar"])
     outdir.mkdir(parents=True, exist_ok=True)
     out_pdf = Path(cfg.get("out_summary_pdf", outdir / "onoff_medsig.pdf"))
     out_pdf.parent.mkdir(parents=True, exist_ok=True)
@@ -205,6 +235,8 @@ def main(cfg_path: str):
         Z_A_rstar_sig,
         Z_med_tau,
         Z_med_sig,
+        Z_mean_tau,
+        Z_mean_sig,
     ) = run_experiments_onoff(
         s_vec=cfg["s_vec"],
         tau_vec=cfg["tauVec"],
@@ -230,9 +262,13 @@ def main(cfg_path: str):
         Z_A_rstar_sig=Z_A_rstar_sig,
         Z_med_tau=Z_med_tau,
         Z_med_sig=Z_med_sig,
+        Z_mean_tau=Z_mean_tau,
+        Z_mean_sig=Z_mean_sig,
         out_pdf=out_pdf,
         save_individual=save_individual,
         outdir=outdir,
+        mc_statistics=mc_statistics,
+        asimov_statistics=asimov_statistics,
     )
 
     if save_individual:
