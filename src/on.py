@@ -42,7 +42,7 @@ def r_star_on(s0: float, b: float, n: float) -> float:
     Barndorff–Nielsen / Lugannani–Rice corrected root.
     """
     n = max(n - 0.5, 0.0)
-
+    
     r = r_stat_on(s0, b, n)
     q = q_stat_on(s0, b, n)
 
@@ -59,13 +59,13 @@ def pvals_on(s0: float, b: float, n):
     Accepts scalar or array-like n; returns arrays for exact and asymptotic p-values.
     """
     n_arr = np.asarray(n, dtype=float)
-    p_true = poisson_tail_on(s0, b, n_arr)
+    p_true = np.minimum(poisson_tail_on(s0, b, n_arr), 0.5)
 
     r_vals = np.vectorize(r_stat_on)(s0, b, n_arr)
-    p_r = norm_survival(r_vals)
+    p_r = norm_survival(np.maximum(r_vals, 0.0))
 
     rstar_vals = np.vectorize(r_star_on)(s0, b, n_arr)
-    p_rstar = norm_survival(rstar_vals)
+    p_rstar = norm_survival(np.maximum(rstar_vals, 0.0))
 
     return {
         "p_true": np.asarray(p_true, dtype=float),
@@ -91,6 +91,7 @@ def median_expected_significance_on(
     n_obs = rng.poisson(lam=s_true + b, size=n_outer)
 
     p_tail = poisson_tail_on(s0=0.0, b=b, n=n_obs)
+    p_tail = np.minimum(p_tail, 0.5)
     p_tail = np.clip(p_tail, 1e-16, 1.0 - 1e-16)
     Z = norm.isf(p_tail)
     return float(np.median(Z)), float(np.mean(Z))
@@ -119,8 +120,8 @@ def expected_significance_on(
 
     for i, (s_val, b_val) in enumerate(zip(flat_s, flat_b)):
         nA = float(s_val + b_val)
-        Z_A_r[i] = r_stat_on(0.0, b_val, nA)
-        Z_A_rstar[i] = r_star_on(0.0, b_val, nA)
+        Z_A_r[i] = max(r_stat_on(0.0, b_val, nA), 0.0)
+        Z_A_rstar[i] = max(r_star_on(0.0, b_val, nA), 0.0)
         medians[i], means[i] = median_expected_significance_on(
             s_true=float(s_val),
             b=float(b_val),

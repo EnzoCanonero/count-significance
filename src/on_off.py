@@ -222,8 +222,8 @@ def pvals_onoff(
     r_obs = float(r_stat_onoff(s, n, m, tau))
     rs_obs = float(r_star_onoff(s, n, m, tau))
 
-    p_r = norm_survival(r_obs)
-    p_rs = norm_survival(rs_obs)
+    p_r = norm_survival(max(r_obs, 0.0))
+    p_rs = norm_survival(max(rs_obs, 0.0))
 
     #Compute the profiled background yield under the signal hypothesis s
     b_tilde = b_profiled(s, n, m, tau)
@@ -241,9 +241,10 @@ def pvals_onoff(
     toys_N, toys_M = sample_null_toys(s, b_tilde, tau, n_toys=n_toys, seed=seed)
     r_toys = r_stat_onoff(s, toys_N, toys_M, tau)
 
-    p_mc = float(np.mean(r_toys >= r_obs))
+    p_mc_raw = float(np.mean(r_toys >= r_obs))
+    p_mc = 0.5 if r_obs <= 0.0 else min(p_mc_raw, 0.5)
 
-    var_p = max(p_mc * (1.0 - p_mc), 0.0) / n_toys
+    var_p = max(p_mc_raw * (1.0 - p_mc_raw), 0.0) / n_toys
     se_mc = float(math.sqrt(var_p))
 
     return {
@@ -267,8 +268,8 @@ def asimov_Zs_onoff(s_true, b, tau):
     mA = float(tau * b)     # off-region expected count
 
     # Asimov Z-values for testing s = 0
-    z_r = float(r_stat_onoff(0.0, nA, mA, tau))
-    z_rss = float(r_star_onoff(0.0, nA, mA, tau))
+    z_r = max(float(r_stat_onoff(0.0, nA, mA, tau)), 0.0)
+    z_rss = max(float(r_star_onoff(0.0, nA, mA, tau)), 0.0)
 
     return {
         "Z_A_r": z_r,
