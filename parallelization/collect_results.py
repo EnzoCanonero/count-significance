@@ -24,6 +24,8 @@ def _fmt(x):
 
 def collect_results(cfg):
     outdir = cfg.get("outdir", "output")
+    max_toys = int(cfg.get("max_toys", 2_000_000))
+    p_res = 1.0 / max_toys
     files = sorted(glob.glob(os.path.join(outdir, "pval_job_*.json")))
     groups = {}  # key -> {"meta": rec, "Z": []}
 
@@ -33,7 +35,8 @@ def collect_results(cfg):
 
         for rec in job_data["points"]:
             key = (rec["mode"], rec["s_idx"], rec["param_idx"], rec["b_idx"])
-            Z_single = norm.isf(rec["p_mc"])
+            p_mc = min(max(rec["p_mc"], p_res), 1.0 - p_res)
+            Z_single = norm.isf(p_mc)
 
             if key not in groups:
                 groups[key] = {"meta": rec, "Z": []}
@@ -52,6 +55,8 @@ def make_plots(
     out_pdf: Path,
     save_individual: bool,
     outdir: Path,
+    mc_statistics: list,
+    asimov_statistics: list,
 ):
     """Render combined (and optional individual) PDFs, mirroring make_plots_onoff."""
     with PdfPages(out_pdf) as pdf:
@@ -60,20 +65,28 @@ def make_plots(
                 Z_A_r = np.zeros_like(b_values_tau, dtype=float)
                 Z_A_rstar = np.zeros_like(b_values_tau, dtype=float)
                 Z_med = np.zeros_like(b_values_tau, dtype=float)
+                Z_mean = np.zeros_like(b_values_tau, dtype=float)
 
                 for b_idx, b in enumerate(b_values_tau):
                     key = ("tau", s_idx, tau_idx, b_idx)
                     slot = groups.get(key)
-                    Z_med[b_idx] = np.nan if slot is None or len(slot["Z"]) == 0 else np.median(np.asarray(slot["Z"]))
+                    Z_arr = np.asarray(slot["Z"]) if slot is not None and len(slot["Z"]) > 0 else None
+                    Z_med[b_idx] = np.nan if Z_arr is None else np.median(Z_arr)
+                    Z_mean[b_idx] = np.nan if Z_arr is None else np.mean(Z_arr)
 
                     asim = asimov_Zs_onoff(s_true, b, tau)
                     Z_A_r[b_idx] = asim["Z_A_r"]
                     Z_A_rstar[b_idx] = asim["Z_A_rstar"]
 
                 fig, ax = plt.subplots(figsize=(8, 5), dpi=150)
-                ax.plot(b_values_tau, Z_A_r, label=r"Asimov $r$ (on/off)")
-                ax.plot(b_values_tau, Z_A_rstar, "--", label=r"Asimov $r^\ast$ (on/off)")
-                ax.plot(b_values_tau, Z_med, linestyle="None", marker="x", label=r"MC median $Z$")
+                if "r" in asimov_statistics:
+                    ax.plot(b_values_tau, Z_A_r, label=r"Asimov $r$ (on/off)")
+                if "rstar" in asimov_statistics:
+                    ax.plot(b_values_tau, Z_A_rstar, "--", label=r"Asimov $r^\ast$ (on/off)")
+                if "median" in mc_statistics:
+                    ax.plot(b_values_tau, Z_med, linestyle="None", marker="x", label=r"MC median $Z$")
+                if "mean" in mc_statistics:
+                    ax.plot(b_values_tau, Z_mean, linestyle="None", marker="+", label=r"MC mean $Z$")
 
                 ax.set_xscale("log")
                 ax.set_xlabel(r"$b$")
@@ -94,11 +107,14 @@ def make_plots(
                 Z_A_r = np.zeros_like(b_values_sig, dtype=float)
                 Z_A_rstar = np.zeros_like(b_values_sig, dtype=float)
                 Z_med = np.zeros_like(b_values_sig, dtype=float)
+                Z_mean = np.zeros_like(b_values_sig, dtype=float)
 
                 for b_idx, b in enumerate(b_values_sig):
                     key = ("sig", s_idx, sig_idx, b_idx)
                     slot = groups.get(key)
-                    Z_med[b_idx] = np.nan if slot is None or len(slot["Z"]) == 0 else np.median(np.asarray(slot["Z"]))
+                    Z_arr = np.asarray(slot["Z"]) if slot is not None and len(slot["Z"]) > 0 else None
+                    Z_med[b_idx] = np.nan if Z_arr is None else np.median(Z_arr)
+                    Z_mean[b_idx] = np.nan if Z_arr is None else np.mean(Z_arr)
 
                     tau_b = 1.0 / (sigma_rel**2 * b)
                     asim = asimov_Zs_onoff(s_true, b, tau_b)
@@ -106,9 +122,14 @@ def make_plots(
                     Z_A_rstar[b_idx] = asim["Z_A_rstar"]
 
                 fig, ax = plt.subplots(figsize=(8, 5), dpi=150)
-                ax.plot(b_values_sig, Z_A_r, label=r"Asimov $r$ (on/off)")
-                ax.plot(b_values_sig, Z_A_rstar, "--", label=r"Asimov $r^\ast$ (on/off)")
-                ax.plot(b_values_sig, Z_med, linestyle="None", marker="x", label=r"MC median $Z$")
+                if "r" in asimov_statistics:
+                    ax.plot(b_values_sig, Z_A_r, label=r"Asimov $r$ (on/off)")
+                if "rstar" in asimov_statistics:
+                    ax.plot(b_values_sig, Z_A_rstar, "--", label=r"Asimov $r^\ast$ (on/off)")
+                if "median" in mc_statistics:
+                    ax.plot(b_values_sig, Z_med, linestyle="None", marker="x", label=r"MC median $Z$")
+                if "mean" in mc_statistics:
+                    ax.plot(b_values_sig, Z_mean, linestyle="None", marker="+", label=r"MC mean $Z$")
 
                 ax.set_xscale("log")
                 ax.set_xlabel(r"$b$")
@@ -142,6 +163,8 @@ def main():
     outdir = Path(cfg.get("outdir", "output"))
     outdir.mkdir(parents=True, exist_ok=True)
     save_individual = bool(cfg.get("individual_plots", False))
+    mc_statistics = cfg.get("mc_statistics", ["median"])
+    asimov_statistics = cfg.get("asimov_statistics", ["r", "rstar"])
 
     groups = collect_results(cfg)
 
@@ -169,6 +192,8 @@ def main():
         out_pdf=out_pdf,
         save_individual=save_individual,
         outdir=outdir,
+        mc_statistics=mc_statistics,
+        asimov_statistics=asimov_statistics,
     )
 
     if save_individual:

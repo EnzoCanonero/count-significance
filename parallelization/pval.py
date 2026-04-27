@@ -51,6 +51,7 @@ def main():
     sigrel_Z = cfg["sigrel_Z"]
     min_toys = cfg.get("min_toys", 10_000)
     max_toys = cfg.get("max_toys", 2_000_000)
+    p_res = 1.0 / float(max_toys)
 
     points = []
 
@@ -60,7 +61,7 @@ def main():
             for b_idx, b in enumerate(b_values_tau):
                 n_obs = int(rng_outer.poisson(lam=s_true + b))
                 m_obs = int(rng_outer.poisson(lam=tau * b))
-                inner_seed = int(rng_inner.integers(0, 2**31 - 1))
+                inner_seed = int(rng_inner.integers(1, 2**31 - 1))
 
                 out_p = pvals_onoff(
                     s=0.0,
@@ -74,7 +75,8 @@ def main():
                     seed=inner_seed,
                 )
 
-                Z_single = norm.isf(out_p["p_mc"])
+                p_mc = min(max(out_p["p_mc"], p_res), 1.0 - p_res)
+                Z_single = norm.isf(p_mc)
 
                 rec = {
                     "mode": "tau",
@@ -90,6 +92,7 @@ def main():
                     "Z_single": float(Z_single),
                 }
                 rec.update(out_p)
+                rec["p_mc"] = p_mc
                 points.append(rec)
 
         # --------- 2) Fixed sigma_rel ---------
@@ -99,7 +102,7 @@ def main():
 
                 n_obs = int(rng_outer.poisson(lam=s_true + b))
                 m_obs = int(rng_outer.poisson(lam=tau_b * b))
-                inner_seed = int(rng_inner.integers(0, 2**31 - 1))
+                inner_seed = int(rng_inner.integers(1, 2**31 - 1))
 
                 out_p = pvals_onoff(
                     s=0.0,
@@ -113,7 +116,8 @@ def main():
                     seed=inner_seed,
                 )
 
-                Z_single = norm.isf(out_p["p_mc"])
+                p_mc = min(max(out_p["p_mc"], p_res), 1.0 - p_res)
+                Z_single = norm.isf(p_mc)
 
                 rec = {
                     "mode": "sig",
@@ -129,6 +133,7 @@ def main():
                     "Z_single": float(Z_single),
                 }
                 rec.update(out_p)
+                rec["p_mc"] = p_mc
                 points.append(rec)
 
     outdir = cfg.get("outdir", "output")

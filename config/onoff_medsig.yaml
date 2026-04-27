@@ -25,6 +25,11 @@ n_outer: 300          # set to 1000 to mirror Condor
 outer_seed: 12345
 inner_seed: 67890
 
+# Which MC curves to include (options: median, mean; empty list = none)
+mc_statistics: [median, mean]
+# Which Asimov curves to include (options: r, rstar; empty list = none)
+asimov_statistics: [r, rstar]
+
 # Output
 outdir: "plots"
 out_summary_pdf: "plots/onoff_medsig.pdf"

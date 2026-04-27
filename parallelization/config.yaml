@@ -25,7 +25,12 @@ max_toys: 10000000
 outer_seed: 12345
 inner_seed: 67890
 
+# Which MC curves to include (options: median, mean; empty list = none)
+mc_statistics: [median, mean]
+# Which Asimov curves to include (options: r, rstar; empty list = none)
+asimov_statistics: [r, rstar]
+
 # Output folder for per-job JSONs and plots
 outdir: "output"
-out_summary_pdf: "output/onoff_medsig.pdf"
+out_summary_pdf: "onoff_medsig.pdf"
 individual_plots: False
