@@ -21,6 +21,11 @@ sigrel_Z: 0.01
 min_toys: 1000
 max_toys: 10000000
 
+# Continuity correction switches for asymptotic approximations
+# Disabled for on/off by default: raw r* performs better against the reference.
+continuity_correction_r: False
+continuity_correction_rstar: False
+
 # RNG seeds (you can tune)
 outer_seed: 12345
 inner_seed: 67890

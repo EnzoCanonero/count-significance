@@ -10,6 +10,10 @@ n_bpts: 100
 n_outer: 10000          # outer toys to build Z distribution
 seed: 12345           # RNG seed for reproducibility
 
+# Continuity correction switches for asymptotic approximations
+continuity_correction_r: False
+continuity_correction_rstar: True
+
 # Which curves to include (options: median, mean; empty list = none)
 mc_statistics: [median, mean]
 # Which Asimov curves to include (options: r, rstar; empty list = none)

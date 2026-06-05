@@ -4,6 +4,13 @@ from scipy.stats import poisson, norm
 
 from .common import norm_survival
 
+def _correct_count(n, continuity_correction: bool):
+    n_arr = np.asarray(n, dtype=float)
+    if continuity_correction:
+        n_arr = np.maximum(n_arr - 0.5, 0.0)
+    return float(n_arr) if n_arr.shape == () else n_arr
+
+
 def poisson_tail_on(s0: float, b: float, n) -> np.ndarray:
     """
     Upward tail P[N >= n | mu0] with mu0 = s0 + b.
@@ -14,8 +21,9 @@ def poisson_tail_on(s0: float, b: float, n) -> np.ndarray:
     return poisson.sf(np.asarray(n) - 1, mu0)
 
 
-def r_stat_on(s0: float, b: float, n: float) -> float:
+def r_stat_on(s0: float, b: float, n: float, continuity_correction: bool = False) -> float:
     """Signed root likelihood ratio r(s0) for testing s = s0."""
+    n = _correct_count(n, continuity_correction)
     mu0 = s0 + b
     if n == 0:
         term = 0.0
@@ -30,21 +38,20 @@ def r_stat_on(s0: float, b: float, n: float) -> float:
     return sgn * math.sqrt(W)
 
 
-def q_stat_on(s0: float, b: float, n: float) -> float:
+def q_stat_on(s0: float, b: float, n: float, continuity_correction: bool = False) -> float:
     """q(s0) = sqrt(n) * log(n / mu0), with mu0 = s0 + b."""
+    n = _correct_count(n, continuity_correction)
     if n <= 0:
         return float("nan")
     mu0 = s0 + b
     return math.sqrt(n) * math.log(n / mu0)
 
-def r_star_on(s0: float, b: float, n: float) -> float:
+def r_star_on(s0: float, b: float, n: float, continuity_correction: bool = True) -> float:
     """
     Barndorff–Nielsen / Lugannani–Rice corrected root.
     """
-    n = max(n - 0.5, 0.0)
-    
-    r = r_stat_on(s0, b, n)
-    q = q_stat_on(s0, b, n)
+    r = r_stat_on(s0, b, n, continuity_correction=continuity_correction)
+    q = q_stat_on(s0, b, n, continuity_correction=continuity_correction)
 
     if (not math.isfinite(q)) or abs(q) < 1e-12 or abs(r) < 1e-12:
         return r
@@ -52,7 +59,13 @@ def r_star_on(s0: float, b: float, n: float) -> float:
     return r + (1.0 / r) * math.log(abs(q / r))
 
 
-def pvals_on(s0: float, b: float, n):
+def pvals_on(
+    s0: float,
+    b: float,
+    n,
+    continuity_correction_r: bool = False,
+    continuity_correction_rstar: bool = True,
+):
     """
     Vectorized p-values for observed counts n in the simple on-channel model.
 
@@ -61,10 +74,10 @@ def pvals_on(s0: float, b: float, n):
     n_arr = np.asarray(n, dtype=float)
     p_true = np.minimum(poisson_tail_on(s0, b, n_arr), 0.5)
 
-    r_vals = np.vectorize(r_stat_on)(s0, b, n_arr)
+    r_vals = np.vectorize(r_stat_on)(s0, b, n_arr, continuity_correction_r)
     p_r = norm_survival(np.maximum(r_vals, 0.0))
 
-    rstar_vals = np.vectorize(r_star_on)(s0, b, n_arr)
+    rstar_vals = np.vectorize(r_star_on)(s0, b, n_arr, continuity_correction_rstar)
     p_rstar = norm_survival(np.maximum(rstar_vals, 0.0))
 
     return {
@@ -102,6 +115,8 @@ def expected_significance_on(
     b,
     n_outer: int = 200,
     seed: int = 12345,
+    continuity_correction_r: bool = False,
+    continuity_correction_rstar: bool = True,
 ) -> dict:
     """
     Vectorized expected discovery Z for the on-channel model.
@@ -120,8 +135,11 @@ def expected_significance_on(
 
     for i, (s_val, b_val) in enumerate(zip(flat_s, flat_b)):
         nA = float(s_val + b_val)
-        Z_A_r[i] = max(r_stat_on(0.0, b_val, nA), 0.0)
-        Z_A_rstar[i] = max(r_star_on(0.0, b_val, nA), 0.0)
+        Z_A_r[i] = max(r_stat_on(0.0, b_val, nA, continuity_correction=continuity_correction_r), 0.0)
+        Z_A_rstar[i] = max(
+            r_star_on(0.0, b_val, nA, continuity_correction=continuity_correction_rstar),
+            0.0,
+        )
         medians[i], means[i] = median_expected_significance_on(
             s_true=float(s_val),
             b=float(b_val),

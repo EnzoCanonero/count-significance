@@ -1,14 +1,38 @@
 # Signal hypotheses (s0) for on/off p-value plots
-s_vec: [0.0, 2.0, 5.0]
+s_vec: [0.0, 1.0, 2.0]
 
 # Background and exposure ratios to scan
-b_vec: [0.5, 2.0, 5.0]
-tau_vec: [0.5, 1.0, 2.0]
+b_vec: [0.01, 0.1, 0.5, 1.0, 2.0]
+tau_vec: [0.5, 1.0, 2.0, 5.0, 10.0]
 
-# Target relative precision on Z for inner toys
-sigrel: 0.001
+# Target relative precision on Z for inner toys (not sigma_b / b)
+mc_sigrel_Z: 0.001
+
+# Continuity correction switches for asymptotic approximations
+# Disabled for on/off by default: raw r* performs better against the exact reference.
+continuity_correction_r: False
+continuity_correction_rstar: False
+
+# Plot selection
+drop_zero_m0: True
+trim_to_discovery_tail: True
+significance_plots: True
+improvement_plots: True
+
+# Extend each n scan until the reference significance reaches this value
+target_Z: 5.0
+max_n: 10000
+
+# OFF-count slices: m = E[M] + k sqrt(E[M]) for these k values
+m_sigma_offsets: [-1, 0, 1]
+
+# Exact is preferred for high-Z p-value plots; use "mc" for toy-MC reference.
+reference_method: "exact"
+reference_tail_mass: 1.0e-12
 
 # Output PDF path
 out_pdf: "plots/onoff_pval.pdf"
+out_significance_pdf: "plots/onoff_pval_with_significance.pdf"
+out_improvement_pdf: "plots/onoff_pval_rstar_improvement.pdf"
 individual_plots: False
 ratio_plots: False
