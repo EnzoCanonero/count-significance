@@ -26,6 +26,19 @@ from .on_off import (
     median_expected_significance_onoff,
     expected_significance_onoff,
 )
+from .lognormal import (
+    background_lognormal,
+    theta_profiled_lognormal,
+    loglik_diff_lognormal,
+    r_stat_lognormal,
+    j_thetatheta_lognormal,
+    q_stat_lognormal,
+    r_star_lognormal,
+    pvals_lognormal_numerical,
+    asimov_Z_lognormal,
+    median_expected_significance_lognormal,
+    expected_significance_lognormal,
+)
 
 __all__ = [
     # simple counting
@@ -52,4 +65,16 @@ __all__ = [
     "asimov_Zs_onoff",
     "median_expected_significance_onoff",
     "expected_significance_onoff",
+    # log-normal constrained background
+    "background_lognormal",
+    "theta_profiled_lognormal",
+    "loglik_diff_lognormal",
+    "r_stat_lognormal",
+    "j_thetatheta_lognormal",
+    "q_stat_lognormal",
+    "r_star_lognormal",
+    "pvals_lognormal_numerical",
+    "asimov_Z_lognormal",
+    "median_expected_significance_lognormal",
+    "expected_significance_lognormal",
 ]

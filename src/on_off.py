@@ -17,6 +17,13 @@ def xlogy(a, b):
     return out
 
 
+def _correct_on_count(n, continuity_correction: bool):
+    n_arr = np.asarray(n, dtype=float)
+    if continuity_correction:
+        n_arr = np.maximum(n_arr - 0.5, 0.0)
+    return float(n_arr) if n_arr.shape == () else n_arr
+
+
 def b_profiled(s, n, m, tau):
     s = np.asarray(s, dtype=float)
     A = (n + m) - (1.0 + tau) * s
@@ -71,80 +78,116 @@ def loglik_diff(s, n, m, tau):
     return ll
 
 
-def r_stat_onoff(s, n, m, tau):
+def r_stat_onoff(s, n, m, tau, continuity_correction: bool = False):
     """Signed LR root: r(s) = sign(s_hat - s)*sqrt(2*Δℓ(s)), with s_hat = n - m/tau."""
-    shat = n - m / tau
-    dll = np.maximum(loglik_diff(s, n, m, tau), 0.0)
+    n_eff = _correct_on_count(n, continuity_correction)
+    shat = n_eff - m / tau
+    dll = np.maximum(loglik_diff(s, n_eff, m, tau), 0.0)
     return np.sign(shat - s) * np.sqrt(2.0 * dll)
 
 
-def q_stat_onoff(s, n, m, tau):
+def q_stat_onoff(s, n, m, tau, continuity_correction: bool = False):
     """
     Closed-form q(s) for the on/off problem.
 
     Domain / safety:
       * requires mu_on > 0 and mu_off > 0
-      * for n = 0 or m = 0, we return the continuous limit q(s) -> 0
+      * for corrected n = 0 or m = 0, we return the continuous limit q(s) -> 0
       * otherwise use the analytic expression
     """
-    s_arr = np.asarray(s, dtype=float)
+    s_arr, n_arr, m_arr, tau_arr = np.broadcast_arrays(
+        np.asarray(s, dtype=float),
+        np.asarray(n, dtype=float),
+        np.asarray(m, dtype=float),
+        np.asarray(tau, dtype=float),
+    )
+    n_eff = np.asarray(n_arr, dtype=float)
+    if continuity_correction:
+        n_eff = np.maximum(n_eff - 0.5, 0.0)
 
     # Profiled background and implied means in on/off regions
-    btilde = b_profiled(s_arr, n, m, tau)
+    btilde = b_profiled(s_arr, n_eff, m_arr, tau_arr)
     mu_on = s_arr + btilde
-    mu_off = tau * btilde
+    mu_off = tau_arr * btilde
 
-    # 1) Hard domain check on the Poisson means
-    invalid_mu = (mu_on <= 0.0) | (mu_off <= 0.0)
-    if np.any(invalid_mu):
-        # Log/ratio expressions are not defined here
-        return np.full_like(s_arr, np.nan, dtype=float)
+    out = np.zeros_like(s_arr, dtype=float)
+    zero_count = (n_eff <= 0.0) | (m_arr <= 0.0)
+    invalid_mu = (~zero_count) & ((mu_on <= 0.0) | (mu_off <= 0.0) | (btilde <= 0.0))
+    regular = (~zero_count) & (~invalid_mu)
+    out[invalid_mu] = np.nan
 
-    # 2) Handle the boundary case n=0 or m=0 via the continuous limit q -> 0
-    if (n == 0) or (m == 0):
-        return np.zeros_like(s_arr, dtype=float)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        num_pref = np.sqrt(n_eff[regular] * m_arr[regular])
+        den_pref = np.sqrt((n_eff[regular] / (mu_on[regular] ** 2)) + (m_arr[regular] / (btilde[regular] ** 2)))
 
-    # 3) Regular case: use the closed-form expression
-    num_pref = np.sqrt(n * m)
-    den_pref = np.sqrt((n / (mu_on**2)) + (m / (btilde**2)))
+        log_on = np.log(n_eff[regular] / mu_on[regular])
+        log_off = np.log(m_arr[regular] / mu_off[regular])
+        bracket = (log_on / btilde[regular]) - (log_off / mu_on[regular])
 
-    log_on = np.log(n / mu_on)
-    log_off = np.log(m / mu_off)
-    bracket = (log_on / btilde) - (log_off / mu_on)
+        out[regular] = num_pref / den_pref * bracket
 
-    return num_pref / den_pref * bracket
+    return float(out) if out.shape == () else out
 
 
-def r_star_onoff(s, n, m, tau, eps: float = 1e-12):
+def r_star_onoff(s, n, m, tau, eps: float = 1e-12, continuity_correction: bool = True):
     """
     Modified root:
-        r*(s) = r(s) + (1/r(s)) * log( r(s) / q(s) ).
+        r*(s) = r(s) + (1/r(s)) * log( q(s) / r(s) ).
+
+    When continuity_correction=True, applies a gradient-based lattice correction
+    that shifts both (n, m) jointly by -1/2 in the direction of grad_T r:
+
+        grad_T r  ∝  (log(n/mu_on),  log(m/mu_off))   [envelope theorem]
+
+    Normalising this vector in Euclidean T-space and shifting by half a unit
+    projects the correct half-lattice step onto each count.  For m at its null
+    expectation (log(m/mu_off) = 0) the result reduces to the 1D correction
+    n → n − 1/2.  Unlike the naive n → n − 1/2, this keeps the (n, m) pair
+    geometrically consistent with the q formula, which depends on both ratios.
 
     Safety / fallback rules:
-      * if |r| < eps  → use r (avoid division by ~0)
+      * if |r| < eps  → use r
       * if r or q is non-finite → use r
       * if r and q have opposite sign or q = 0 → use r
     """
-    # Base root and its copy for output
-    r = np.asarray(r_stat_onoff(s, n, m, tau), dtype=float)
+    n_a = np.asarray(n, dtype=float)
+    m_a = np.asarray(m, dtype=float)
+
+    if continuity_correction:
+        # Profiled means at integer (n, m) for the correction direction only.
+        b_tilde = b_profiled(s, n_a, m_a, tau)
+        mu_on  = np.asarray(s, dtype=float) + b_tilde
+        mu_off = np.asarray(tau, dtype=float) * b_tilde
+
+        with np.errstate(divide="ignore", invalid="ignore"):
+            log_on  = np.where((n_a > 0) & (mu_on  > 0),
+                               np.log(np.maximum(n_a, 1e-300) / np.maximum(mu_on,  1e-300)), 0.0)
+            log_off = np.where((m_a > 0) & (mu_off > 0),
+                               np.log(np.maximum(m_a, 1e-300) / np.maximum(mu_off, 1e-300)), 0.0)
+
+        cc_norm   = np.sqrt(log_on ** 2 + log_off ** 2)
+        has_cc    = cc_norm > eps
+        safe_norm = np.where(has_cc, cc_norm, 1.0)
+
+        n_eff = np.where(has_cc, np.maximum(n_a - 0.5 * log_on  / safe_norm, 0.0), n_a)
+        m_eff = np.where(has_cc, np.maximum(m_a - 0.5 * log_off / safe_norm, 0.0), m_a)
+    else:
+        n_eff = n_a
+        m_eff = m_a
+
+    r = np.asarray(r_stat_onoff(s, n_eff, m_eff, tau, continuity_correction=False), dtype=float)
     out = np.array(r, copy=True, dtype=float)
+    q = np.asarray(q_stat_onoff(s, n_eff, m_eff, tau, continuity_correction=False), dtype=float)
 
-    # Auxiliary quantity q(s) with its own safety logic
-    q = q_stat_onoff(s, n, m, tau)
+    small_r    = np.abs(r) < eps
+    finite_r   = np.isfinite(r)
+    finite_q   = np.isfinite(q)
+    same_sign  = (q * r) > 0.0
 
-    # Masks to control where we apply the r* correction
-    small_r = np.abs(r) < eps
-    finite_r = np.isfinite(r)
-    finite_q = np.isfinite(q)
-    same_sign = (q * r) > 0.0  # excludes q=0, r=0 and opposite signs
-
-    # Valid points: r not too small, both finite, and same sign
     valid = (~small_r) & finite_r & finite_q & same_sign
-
-    # Only modify entries where the correction is numerically safe
     out[valid] = r[valid] + (1.0 / r[valid]) * np.log(q[valid] / r[valid])
 
-    return out
+    return float(out) if out.shape == () else out
 
 
 def sample_null_toys(s, b, tau, n_toys, seed=None):
@@ -215,12 +258,15 @@ def pvals_onoff(
     min_toys: int = 10_000,
     max_toys: int = 2_000_000,
     seed: int = 12345,
+    continuity_correction_r: bool = False,
+    continuity_correction_rstar: bool = True,
 ) -> Dict[str, float]:
     """Compute p-values for observed (n,m) testing s."""
 
     #Compute the observed test statistics r and r* and their Gaussian-approximation p-values
-    r_obs = float(r_stat_onoff(s, n, m, tau))
-    rs_obs = float(r_star_onoff(s, n, m, tau))
+    r_ref = float(r_stat_onoff(s, n, m, tau, continuity_correction=False))
+    r_obs = float(r_stat_onoff(s, n, m, tau, continuity_correction=continuity_correction_r))
+    rs_obs = float(r_star_onoff(s, n, m, tau, continuity_correction=continuity_correction_rstar))
 
     p_r = norm_survival(max(r_obs, 0.0))
     p_rs = norm_survival(max(rs_obs, 0.0))
@@ -230,7 +276,7 @@ def pvals_onoff(
 
     #Estimate the required number of toys to reach the target relative precision on the p-value
     n_toys = required_toys_for_Z_precision(
-        r_obs,
+        r_ref,
         sigrel=sigrel,
         min_toys=min_toys,
         max_toys=max_toys,
@@ -239,10 +285,10 @@ def pvals_onoff(
     #Generate toys to estimate the Monte Carlo p-value.
     #Toys are drawn using the profiled background, mimicking the realistic case where b is unknown.
     toys_N, toys_M = sample_null_toys(s, b_tilde, tau, n_toys=n_toys, seed=seed)
-    r_toys = r_stat_onoff(s, toys_N, toys_M, tau)
+    r_toys = r_stat_onoff(s, toys_N, toys_M, tau, continuity_correction=False)
 
-    p_mc_raw = float(np.mean(r_toys >= r_obs))
-    p_mc = 0.5 if r_obs <= 0.0 else min(p_mc_raw, 0.5)
+    p_mc_raw = float(np.mean(r_toys >= r_ref))
+    p_mc = 0.5 if r_ref <= 0.0 else min(p_mc_raw, 0.5)
 
     var_p = max(p_mc_raw * (1.0 - p_mc_raw), 0.0) / n_toys
     se_mc = float(math.sqrt(var_p))
@@ -254,7 +300,13 @@ def pvals_onoff(
         "p_rstar": p_rs,
     }
 
-def asimov_Zs_onoff(s_true, b, tau):
+def asimov_Zs_onoff(
+    s_true,
+    b,
+    tau,
+    continuity_correction_r: bool = False,
+    continuity_correction_rstar: bool = True,
+):
     """
     Asimov discovery Z-values for testing s = 0 in the on/off problem.
 
@@ -268,8 +320,11 @@ def asimov_Zs_onoff(s_true, b, tau):
     mA = float(tau * b)     # off-region expected count
 
     # Asimov Z-values for testing s = 0
-    z_r = max(float(r_stat_onoff(0.0, nA, mA, tau)), 0.0)
-    z_rss = max(float(r_star_onoff(0.0, nA, mA, tau)), 0.0)
+    z_r = max(float(r_stat_onoff(0.0, nA, mA, tau, continuity_correction=continuity_correction_r)), 0.0)
+    z_rss = max(
+        float(r_star_onoff(0.0, nA, mA, tau, continuity_correction=continuity_correction_rstar)),
+        0.0,
+    )
 
     return {
         "Z_A_r": z_r,
@@ -333,6 +388,8 @@ def expected_significance_onoff(
     min_toys: int = 10_000,
     max_toys: int = 2_000_000,
     seed: int = 12345,
+    continuity_correction_r: bool = False,
+    continuity_correction_rstar: bool = True,
 ):
     """
     Compute Asimov and MC expected significances for H0:s=0.
@@ -356,7 +413,13 @@ def expected_significance_onoff(
     Z_mc_mean = np.empty_like(flat_s, dtype=float)
 
     for i, (s_val, b_val, tau_val) in enumerate(zip(flat_s, flat_b, flat_tau)):
-        asim = asimov_Zs_onoff(float(s_val), float(b_val), float(tau_val))
+        asim = asimov_Zs_onoff(
+            float(s_val),
+            float(b_val),
+            float(tau_val),
+            continuity_correction_r=continuity_correction_r,
+            continuity_correction_rstar=continuity_correction_rstar,
+        )
         mc_median, mc_mean = median_expected_significance_onoff(
             float(s_val),
             float(b_val),

@@ -1,0 +1,33 @@
+# Signal hypotheses for log-normal constrained p-value plots
+s_vec: [0.0, 1.0]
+
+# Nominal background yields and log-normal shape parameters
+b0_vec: [0.1, 0.5, 1.0, 2.0]
+sigma_vec: [0.2, 0.5, 1.0]
+
+# Auxiliary observations theta_tilde = theta + Normal(0, 1)
+theta_tilde_offsets: [-1, 0, 1]
+
+# Continuity correction switches for asymptotic approximations
+continuity_correction_r: False
+continuity_correction_rstar: False
+
+# Numerical reference: Gauss-Hermite quadrature over theta_tilde'
+n_gh_pts: 30
+reference_tail_mass: 1.0e-10
+
+# Extend each n scan until the numerical reference significance reaches this value
+target_Z: 5.0
+max_n: 10000
+trim_to_discovery_tail: True
+
+# Plot selection
+significance_plots: True
+improvement_plots: False
+individual_plots: False
+ratio_plots: False
+
+# Output PDF paths
+out_pdf: "plots/lognormal_pval.pdf"
+out_significance_pdf: "plots/lognormal_pval_with_significance.pdf"
+out_improvement_pdf: "plots/lognormal_pval_rstar_improvement.pdf"

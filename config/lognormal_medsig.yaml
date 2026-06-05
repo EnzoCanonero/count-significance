@@ -1,0 +1,30 @@
+# True signal strengths for median expected discovery Z scans
+s_vec: [1.0, 2.0]
+
+# Log-normal shape parameters: exp(+-sigma) gives the up/down background factor
+sigma_vec: [0.2, 0.5, 1.0, 2.0]
+
+# Nominal background scan
+b0_min: 0.1
+b0_max: 100.0
+n_bpts: 20
+
+# Continuity correction switches for asymptotic approximations
+continuity_correction_r: False
+continuity_correction_rstar: False
+
+# Outer pseudo-experiments and numerical inner p-value reference
+n_outer: 50
+n_gh_pts: 20
+reference_tail_mass: 1.0e-10
+seed: 12345
+
+# Which curves to include (options: median, mean; empty list = none)
+mc_statistics: [median]
+# Which Asimov curves to include (options: r, rstar; empty list = none)
+asimov_statistics: [r, rstar]
+
+# Output
+outdir: "plots"
+out_pdf: "plots/lognormal_medsig.pdf"
+individual_plots: False

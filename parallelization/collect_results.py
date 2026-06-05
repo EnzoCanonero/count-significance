@@ -57,6 +57,8 @@ def make_plots(
     outdir: Path,
     mc_statistics: list,
     asimov_statistics: list,
+    continuity_correction_r: bool = False,
+    continuity_correction_rstar: bool = False,
 ):
     """Render combined (and optional individual) PDFs, mirroring make_plots_onoff."""
     with PdfPages(out_pdf) as pdf:
@@ -74,7 +76,13 @@ def make_plots(
                     Z_med[b_idx] = np.nan if Z_arr is None else np.median(Z_arr)
                     Z_mean[b_idx] = np.nan if Z_arr is None else np.mean(Z_arr)
 
-                    asim = asimov_Zs_onoff(s_true, b, tau)
+                    asim = asimov_Zs_onoff(
+                        s_true,
+                        b,
+                        tau,
+                        continuity_correction_r=continuity_correction_r,
+                        continuity_correction_rstar=continuity_correction_rstar,
+                    )
                     Z_A_r[b_idx] = asim["Z_A_r"]
                     Z_A_rstar[b_idx] = asim["Z_A_rstar"]
 
@@ -117,7 +125,13 @@ def make_plots(
                     Z_mean[b_idx] = np.nan if Z_arr is None else np.mean(Z_arr)
 
                     tau_b = 1.0 / (sigma_rel**2 * b)
-                    asim = asimov_Zs_onoff(s_true, b, tau_b)
+                    asim = asimov_Zs_onoff(
+                        s_true,
+                        b,
+                        tau_b,
+                        continuity_correction_r=continuity_correction_r,
+                        continuity_correction_rstar=continuity_correction_rstar,
+                    )
                     Z_A_r[b_idx] = asim["Z_A_r"]
                     Z_A_rstar[b_idx] = asim["Z_A_rstar"]
 
@@ -165,6 +179,8 @@ def main():
     save_individual = bool(cfg.get("individual_plots", False))
     mc_statistics = cfg.get("mc_statistics", ["median"])
     asimov_statistics = cfg.get("asimov_statistics", ["r", "rstar"])
+    continuity_correction_r = bool(cfg.get("continuity_correction_r", False))
+    continuity_correction_rstar = bool(cfg.get("continuity_correction_rstar", False))
 
     groups = collect_results(cfg)
 
@@ -194,6 +210,8 @@ def main():
         outdir=outdir,
         mc_statistics=mc_statistics,
         asimov_statistics=asimov_statistics,
+        continuity_correction_r=continuity_correction_r,
+        continuity_correction_rstar=continuity_correction_rstar,
     )
 
     if save_individual:

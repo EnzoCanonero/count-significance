@@ -26,7 +26,12 @@ def _fmt(x):
 
 
 def run_experiments_on(
-    s_vec: np.ndarray, b_values: np.ndarray, n_outer: int, seed: int
+    s_vec: np.ndarray,
+    b_values: np.ndarray,
+    n_outer: int,
+    seed: int,
+    continuity_correction_r: bool = False,
+    continuity_correction_rstar: bool = True,
 ):
     """
     Compute Asimov and MC-median Z grids for the simple-counting case via expected_significance_on.
@@ -45,6 +50,8 @@ def run_experiments_on(
         b=b_grid,
         n_outer=n_outer,
         seed=seed,
+        continuity_correction_r=continuity_correction_r,
+        continuity_correction_rstar=continuity_correction_rstar,
     )
     return res["Z_A_r"], res["Z_A_rstar"], res["Z_mc_median"], res["Z_mc_mean"]
 
@@ -117,6 +124,8 @@ def main(cfg_path: str):
     seed = int(cfg.get("seed", 12345))
     out_pdf = Path(cfg["out_pdf"])
     save_individual = bool(cfg.get("individual_plots", False))
+    continuity_correction_r = bool(cfg.get("continuity_correction_r", False))
+    continuity_correction_rstar = bool(cfg.get("continuity_correction_rstar", True))
 
     mc_statistics = cfg.get("mc_statistics", ["median"])
     asimov_statistics = cfg.get("asimov_statistics", ["r", "rstar"])
@@ -125,7 +134,12 @@ def main(cfg_path: str):
     b_values = np.logspace(np.log10(b_min), np.log10(b_max), n_bpts)
 
     Z_A_r, Z_A_rstar, Z_mc_median, Z_mc_mean = run_experiments_on(
-        s_vec=s_vec, b_values=b_values, n_outer=n_outer, seed=seed
+        s_vec=s_vec,
+        b_values=b_values,
+        n_outer=n_outer,
+        seed=seed,
+        continuity_correction_r=continuity_correction_r,
+        continuity_correction_rstar=continuity_correction_rstar,
     )
 
     make_plots_on(

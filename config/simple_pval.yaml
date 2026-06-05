@@ -4,7 +4,16 @@ s0_vec: [0.1, 0.5, 1.0, 2.0, 5.0, 10.0]
 # Background expectations to plot
 b_vec: [0, 1, 2, 5]
 
+# Extend n scan until the exact reference significance reaches this value
+target_Z: 5.0
+
+# Continuity correction switches for asymptotic approximations
+continuity_correction_r: False
+continuity_correction_rstar: True
+
 # Output PDF path
 out_pdf: "plots/simple_pval.pdf"
+out_significance_pdf: "plots/simple_pval_with_significance.pdf"
+significance_plots: True
 individual_plots: False
 ratio_plots: False

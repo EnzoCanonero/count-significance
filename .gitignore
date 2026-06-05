@@ -11,6 +11,7 @@ __pycache__/
 # Virtual environments
 .env
 .venv
+.venv-lcg105/
 env/
 venv/
 
@@ -28,3 +29,5 @@ venv/
 parallelization/logs/
 parallelization/output/
 parallelization/onoff_medsig.pdf
+
+
