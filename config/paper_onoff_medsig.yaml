@@ -1,0 +1,22 @@
+s_vec: [1.0, 2.0]
+tauVec: [0.5, 2.0]
+relSigVec: [0.5, 1.0]
+b_min_tau: 0.1
+b_max_tau: 100.0
+n_bpts_tau: 30
+b_min_sig: 0.1
+b_max_sig: 100.0
+n_bpts_sig: 30
+sigrel_Z: 0.05
+min_toys: 500
+max_toys: 100000
+continuity_correction_r: False
+continuity_correction_rstar: False
+n_outer: 300
+outer_seed: 12345
+inner_seed: 67890
+mc_statistics: [median]
+asimov_statistics: [r, rstar]
+outdir: "plots"
+out_summary_pdf: "plots/paper_onoff_medsig.pdf"
+individual_plots: True

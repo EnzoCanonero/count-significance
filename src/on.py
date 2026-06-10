@@ -25,6 +25,8 @@ def r_stat_on(s0: float, b: float, n: float, continuity_correction: bool = False
     """Signed root likelihood ratio r(s0) for testing s = s0."""
     n = _correct_count(n, continuity_correction)
     mu0 = s0 + b
+    if mu0 <= 0.0:
+        return 0.0 if n <= 0.0 else float("inf")
     if n == 0:
         term = 0.0
     else:
@@ -44,6 +46,8 @@ def q_stat_on(s0: float, b: float, n: float, continuity_correction: bool = False
     if n <= 0:
         return float("nan")
     mu0 = s0 + b
+    if mu0 <= 0.0:
+        return float("inf")
     return math.sqrt(n) * math.log(n / mu0)
 
 def r_star_on(s0: float, b: float, n: float, continuity_correction: bool = True) -> float:

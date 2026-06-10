@@ -1,0 +1,12 @@
+s_vec: [1.0, 2.0, 5.0]
+b_min: 0.1
+b_max: 100.0
+n_bpts: 50
+n_outer: 5000
+seed: 12345
+continuity_correction_r: False
+continuity_correction_rstar: True
+mc_statistics: [median]
+asimov_statistics: [r, rstar]
+out_pdf: "plots/paper_simple_medsig.pdf"
+individual_plots: True

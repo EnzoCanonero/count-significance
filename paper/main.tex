@@ -65,7 +65,10 @@ Egham, TW20 0EX, U.K.
   using the Asimov data set, as outlined in Ref.~\cite{asimov}.  The
   validity of the new expression is compared with Monte Carlo results
   and to the other formulae for expected significance often used in
-  particle physics.
+  particle physics.  Higher-order asymptotic corrections to both the
+  $p$-value and the Asimov approximation are also investigated using
+  the Barndorff-Nielsen--Lugannani--Rice $r^*$ statistic, and are
+  found to provide improvements at small event yields.
 \end{abstract}
 
 
@@ -126,7 +129,22 @@ not hold.  For completeness this is reviewed in Sec.~\ref{sec:bknown}.
 The primary result of this note is an extension of the Poisson-based
 formula for expected discovery significance to the case where $b$ is
 uncertain, and is given in Eq.~(\ref{eq:onoffmedZ2}) of
-Sec.~\ref{sec:bunknown}.  Conclusions are given in
+Sec.~\ref{sec:bunknown}.
+
+All the formulae described so far are based on the approximation, valid
+in the large-sample limit, that the test statistic $\sqrt{q_0}$
+follows a half-Gaussian distribution.  For small expected event yields
+this asymptotic approximation can introduce non-negligible errors in
+the $p$-value and in the expected significance.  A systematic way to
+improve on this is the higher-order Barndorff-Nielsen--Lugannani--Rice
+correction \cite{BN86,LR80,Canonero23}, which replaces the
+first-order significance $Z = \sqrt{q_0}$ with a corrected statistic
+$Z^* = r^*(0)$ that accounts for the skewness and non-Gaussianity of
+the likelihood.  In Sec.~\ref{sec:hoa} these corrections are applied
+to both the $p$-value calculation and the Asimov approximation for the
+expected significance, for the simple counting experiment and the on/off
+problem.
+Conclusions are given in
 Sec.~\ref{sec:conclusions}.
 
 \section{Discovery as a statistical test}
@@ -305,7 +323,7 @@ $s/\sqrt{b}$ in regions where $s \ll b$ does not hold.
 
 \setlength{\unitlength}{1.0 cm}
 \renewcommand{\baselinestretch}{0.9}
-\begin{figure}[h]
+\begin{figure}[tp]
   \vspace{0.3 cm}
   \hspace{0.05\textwidth}
   \begin{minipage}[c]{0.45\textwidth} 
@@ -466,7 +484,7 @@ down.
 
 \setlength{\unitlength}{1.0 cm}
 \renewcommand{\baselinestretch}{0.9}
-\begin{figure}[h] \center
+\begin{figure}[tp] \center
   %\vspace{-0.2 cm}
   %  \hspace{0.05\textwidth}
   \includegraphics[width=0.35\textwidth]{./medsig_s2_rel.pdf}
@@ -503,11 +521,261 @@ several values of $\tau$ (see text).}
 \section{Higher-order asymptotic corrections}
 \label{sec:hoa}
 
-Although the formulas shown above provide excellent approximations to the
-expected significance for surprisingly small mean values of the Poisson-distributed number of events, one may still ask if even better accuracy 
-can be achieved using higher-order corrections fo the asymptotic
-distributions.
+\subsection{The $r^*$ correction}
+\label{sec:rstar}
 
+Although the formulae presented above provide good approximations to the
+discovery significance for small event yields, even better
+accuracy can be obtained through higher-order asymptotic methods.
+The starting point is the signed likelihood-ratio root
+%
+\begin{equation}
+  \label{eq:r}
+  r(s_0) = \mathrm{sign}(\hat{s} - s_0)\sqrt{-2\ln\lambda(s_0)} \;.
+\end{equation}
+%
+For the discovery test, $r$ is evaluated at $s_0 = 0$.  When
+$\hat{s} \geq 0$ one has
+$r(0) = \sqrt{-2\ln\lambda(0)} = \sqrt{q_0}$, which is precisely the
+significance $Z = \sqrt{q_0}$ appearing in
+Eqs.~(\ref{eq:Z0count}) and~(\ref{eq:onoffZ}).  The first-order
+approximation $p \approx 1 - \Phi(r(0))$ is thus equivalent to the
+Wilks-theorem result used throughout the preceding sections.
+
+A higher-order correction \cite{BN86,LR80,Canonero23} replaces $r(s_0)$ with
+%
+\begin{equation}
+  \label{eq:rstar}
+  r^*(s_0) = r(s_0) + \frac{1}{r(s_0)}\ln\!\left|\frac{q(s_0)}{r(s_0)}\right| \;,
+\end{equation}
+%
+\noindent where $q(s_0)$ is an auxiliary statistic related to the
+saddlepoint approximation of the score function (see
+Refs.~\cite{Brazzale07,Canonero23} for derivations and worked
+examples); its model-specific forms at $s_0 = 0$ are given in
+Secs.~\ref{sec:rstar_simple} and~\ref{sec:rstar_onoff}, and for
+general~$s_0$ in Appendix~\ref{app:q}.  The corrected discovery significance and
+$p$-value are then
+%
+\begin{equation}
+  \label{eq:Zstar}
+  Z^* = r^*(0) \;, \qquad p^* = 1 - \Phi(Z^*) \;,
+\end{equation}
+%
+\noindent replacing the first-order result $Z = r(0) = \sqrt{q_0}$.
+The correction term in Eq.~(\ref{eq:rstar}) accounts for the skewness
+and non-Gaussianity of the likelihood, and can substantially improve
+the accuracy for small expected event yields; it is particularly
+effective in the tails of the distribution, precisely the regime
+of interest for discovery. Both $r$ and $r^*$ are continuous approximations to the exact
+discrete $p$-value $p_{\rm exact} = P(N \geq n \,|\, s_0, b)$;
+the treatment of discrete data is discussed in each subsection below.
+
+\subsection{Simple counting experiment}
+\label{sec:rstar_simple}
+
+For the simple counting experiment the auxiliary statistic evaluated
+at $s_0 = 0$ is
+%
+\begin{equation}
+  \label{eq:q_simple}
+  q(0) = \sqrt{n}\,\ln\frac{n}{b} \;.
+\end{equation}
+%
+Figure~\ref{fig:rstar_pval_simple} shows the corrected discovery
+significance $Z^*$ from Eq.~(\ref{eq:Zstar}) as a function of the
+observed count $n$ for two values of the background, $b = 0.5$ and
+$b = 2$, compared to the first-order approximation $Z = r(0) =
+\sqrt{q_0}$ and the exact Poisson-tail significance.  A continuity
+correction improves the approximation to the exact discrete $p$-value: each integer count occupies
+a unit interval in the continuous picture, so the discrete tail
+starting at $n$ is better matched by the continuous tail starting half
+a unit earlier, at $n - \tfrac{1}{2}$.  This correction is applied to
+$r^*$ only; $r$ is kept at the integer argument, consistently with the
+results in Secs.~\ref{sec:bknown} and~\ref{sec:bunknown}.
+
+\setlength{\unitlength}{1.0 cm}
+\renewcommand{\baselinestretch}{0.9}
+\begin{figure}[tp]\center
+  \includegraphics[width=0.45\textwidth]{./rstar_simple_pval_b0p5.pdf}
+  \hspace{0.05\textwidth}
+  \includegraphics[width=0.45\textwidth]{./rstar_simple_pval_b2.pdf}\\[-0.15cm]
+  \makebox[0.45\textwidth]{\centering(a)}\hspace{0.05\textwidth}\makebox[0.45\textwidth]{\centering(b)}
+  \caption{\small Discovery significance $Z = \Phi^{-1}(1-p)$ versus
+    observed count $n$ for the simple counting experiment with
+    (a) $b = 0.5$ and (b) $b = 2$, testing $s_0 = 0$.  The exact
+    Poisson-tail significance (crosses) is compared to the first-order
+    asymptotic approximation $r$ (circles) and the higher-order
+    correction $r^*$ with continuity correction (triangles).}
+  \label{fig:rstar_pval_simple}
+\end{figure}
+\renewcommand{\baselinestretch}{1}
+\small\normalsize
+
+The improvement from $r^*$ is largest when the expected background is
+small and in the discovery tail.  For $b = 0.5$, where the expected
+count under the null is very small, the first-order approximation $r$ overestimate the exact significance by a
+non-negligible margin, whereas $r^*$ tracks the exact values closely.
+For $b = 2$ the improvement is still visible but more moderate, and
+both approximations converge as the expected count increases.
+
+\subsection{On/off problem}
+\label{sec:rstar_onoff}
+
+For the on/off model, using $\hat{\hat{b}}(0) = (n+m)/(1+\tau)$ from
+Eq.~(\ref{eq:bhathat0}), the auxiliary statistic at $s_0 = 0$ is
+%
+\begin{equation}
+  \label{eq:q_onoff}
+  q(0) = \sqrt{\frac{nm}{n+m}}\,\ln\frac{n\tau}{m} \;.
+\end{equation}
+%
+Figure~\ref{fig:rstar_pval_onoff} shows the corrected significance
+$Z^*$ for four configurations $(b, \tau) \in \{0.5, 2\} \times
+\{0.5, 2\}$, with no continuity correction applied, as the correction has no
+canonical extension to the two-dimensional integer pair $(n, m)$.
+For each
+configuration two representative values of the off-region count $m$
+near the expected value $E[M] = \tau b$ are shown.
+
+\setlength{\unitlength}{1.0 cm}
+\renewcommand{\baselinestretch}{0.9}
+\begin{figure}[tp]\center
+  \includegraphics[width=0.45\textwidth]{./rstar_onoff_pval_b0p5_tau0p5.pdf}
+  \hspace{0.05\textwidth}
+  \includegraphics[width=0.45\textwidth]{./rstar_onoff_pval_b0p5_tau2.pdf}\\[-0.15cm]
+  \makebox[0.45\textwidth]{\centering(a)}\hspace{0.05\textwidth}\makebox[0.45\textwidth]{\centering(b)}\\[0.3cm]
+  \includegraphics[width=0.45\textwidth]{./rstar_onoff_pval_b2_tau0p5.pdf}
+  \hspace{0.05\textwidth}
+  \includegraphics[width=0.45\textwidth]{./rstar_onoff_pval_b2_tau2.pdf}\\[-0.15cm]
+  \makebox[0.45\textwidth]{\centering(c)}\hspace{0.05\textwidth}\makebox[0.45\textwidth]{\centering(d)}
+  \caption{\small Discovery significance $Z$ versus on-region count
+    $n$ for the on/off model with (a) $b=0.5$, $\tau=0.5$;
+    (b) $b=0.5$, $\tau=2$; (c) $b=2$, $\tau=0.5$; (d) $b=2$,
+    $\tau=2$, testing $s_0=0$.  Each panel shows results for two
+    values of the off-count $m$ (see text).  The exact reference
+    significance (crosses) is compared to $r$ (circles) and $r^*$
+    without continuity correction (triangles).}
+  \label{fig:rstar_pval_onoff}
+\end{figure}
+\renewcommand{\baselinestretch}{1}
+\small\normalsize
+
+In the discovery tail $r^*$ provides a better approximation to the
+exact significance than $r$.  The improvement is largest when both $b$
+and $\tau$ are small, i.e., when the total expected event yield in both
+regions is small (panel~(a)).  For larger expected yields the two
+approximations converge towards the exact result; in this regime $r^*$ may marginally underperform $r$ near the centre
+of the distribution ($Z \approx 0$), but recovers in the tails where
+the correction is relevant.
+
+\subsection{Expected significance with $r^*$ and the Asimov data set}
+\label{sec:rstar_asimov}
+
+Applying $r^*$ to the Asimov dataset involves two independent levels
+of approximation.  The first is the Asimov approximation itself: the
+median expected significance is estimated by evaluating $Z$ at the
+expected data $n_A = s_{\rm true} + b$ (and $m_A = \tau b$ for the
+on/off problem) in place of computing the true median of the
+test-statistic distribution.  The second is the significance
+approximation at that fixed dataset: $r(0) = \sqrt{q_0}$ or the
+corrected $r^*(0)$.  The $r^*$ correction addresses only the second
+level, providing a more accurate significance for the specific Asimov
+data point.  Since the two approximations are independent they may
+partially cancel or compound, so the combined one need not
+be uniformly more accurate than either alone.
+
+Figure~\ref{fig:rstar_medsig_simple} shows the results for the simple
+counting experiment. For $r^*$ a continuity correction $n_A \to n_A - \tfrac{1}{2}$ is
+applied to the continuous Asimov value, following the same procedure
+as in Sec.~\ref{sec:rstar_simple} for the $p$-value computation.
+$Z_A(r^*)$ agrees better with the MC median than $Z_A(r)$ across
+the full range of $b$, reflecting the improved significance
+approximation at the Asimov point.
+
+\setlength{\unitlength}{1.0 cm}
+\renewcommand{\baselinestretch}{0.9}
+\begin{figure}[tp]\center
+  \includegraphics[width=0.32\textwidth]{./rstar_simple_medsig_s1.pdf}
+  \hspace{0.01\textwidth}
+  \includegraphics[width=0.32\textwidth]{./rstar_simple_medsig_s2.pdf}
+  \hspace{0.01\textwidth}
+  \includegraphics[width=0.32\textwidth]{./rstar_simple_medsig_s5.pdf}\\[-0.15cm]
+  \makebox[0.32\textwidth]{\centering(a)}\hspace{0.01\textwidth}\makebox[0.32\textwidth]{\centering(b)}\hspace{0.01\textwidth}\makebox[0.32\textwidth]{\centering(c)}
+  \caption{\small Median expected discovery significance as a function
+    of the expected background $b$ for the simple counting experiment
+    with (a) $s_{\rm true} = 1$, (b) $s_{\rm true} = 2$, (c)
+    $s_{\rm true} = 5$.  Shown are the Asimov approximation based on
+    $r$ (solid) and $r^*$ with continuity correction (dashed), and the
+    true MC median (crosses).  The continuity correction is applied to
+    the continuous Asimov value $n_A = s_{\rm true}+b$.}
+  \label{fig:rstar_medsig_simple}
+\end{figure}
+\renewcommand{\baselinestretch}{1}
+\small\normalsize
+
+For the on/off problem, Fig.~\ref{fig:rstar_medsig_onoff_tau} shows
+the median expected significance for fixed $\tau$; no continuity
+correction is applied,
+for the same reason as in Sec.~\ref{sec:rstar_onoff}.  $r^*$ provides
+a clear improvement over $r$ at small $b$, where the expected event
+yields in both regions are small.  At large $b$ both $Z_A(r)$ and
+$Z_A(r^*)$ converge to the MC median, as expected from the asymptotic
+theory.
+
+\setlength{\unitlength}{1.0 cm}
+\renewcommand{\baselinestretch}{0.9}
+\begin{figure}[tp]\center
+  \includegraphics[width=0.45\textwidth]{./rstar_onoff_medsig_s1_tau0p5.pdf}
+  \hspace{0.05\textwidth}
+  \includegraphics[width=0.45\textwidth]{./rstar_onoff_medsig_s2_tau0p5.pdf}\\[-0.15cm]
+  \makebox[0.45\textwidth]{\centering(a)}\hspace{0.05\textwidth}\makebox[0.45\textwidth]{\centering(b)}\\[0.3cm]
+  \includegraphics[width=0.45\textwidth]{./rstar_onoff_medsig_s1_tau2.pdf}
+  \hspace{0.05\textwidth}
+  \includegraphics[width=0.45\textwidth]{./rstar_onoff_medsig_s2_tau2.pdf}\\[-0.15cm]
+  \makebox[0.45\textwidth]{\centering(c)}\hspace{0.05\textwidth}\makebox[0.45\textwidth]{\centering(d)}
+  \caption{\small Median expected discovery significance versus $b$ for
+    the on/off model with fixed $\tau$: (a) $s=1$, $\tau=0.5$;
+    (b) $s=2$, $\tau=0.5$; (c) $s=1$, $\tau=2$; (d) $s=2$,
+    $\tau=2$.  The Asimov approximations based on $r$ (solid) and
+    $r^*$ without continuity correction (dashed) are compared to the
+    MC median (crosses).}
+  \label{fig:rstar_medsig_onoff_tau}
+\end{figure}
+\renewcommand{\baselinestretch}{1}
+\small\normalsize
+
+Figure~\ref{fig:rstar_medsig_onoff_sig} shows the corresponding
+results for fixed relative background uncertainty $\sigma_b/b$.  Here
+$\tau = 1/[(\sigma_b/b)^2\,b]$ decreases with $b$, so the expected
+off-region count $m_A = \tau b = 1/(\sigma_b/b)^2$ is constant in
+$b$.  At small $b$ the Asimov point is in a signal-dominated regime
+($n_A \approx s_{\rm true}$, large $\tau$) where $q > r$, so the
+$r^*$ correction is positive and pushes $Z_A(r^*)$ above $Z_A(r)$.
+In this regime the MC median is comparable to $Z_A(r)$, so $r^*$
+overcorrects relative to the truth, an instance of the two
+approximation levels compounding adversely rather than cancelling.
+
+\setlength{\unitlength}{1.0 cm}
+\renewcommand{\baselinestretch}{0.9}
+\begin{figure}[tp]\center
+  \includegraphics[width=0.45\textwidth]{./rstar_onoff_medsig_s1_sigrel0p5.pdf}
+  \hspace{0.05\textwidth}
+  \includegraphics[width=0.45\textwidth]{./rstar_onoff_medsig_s2_sigrel0p5.pdf}\\[-0.15cm]
+  \makebox[0.45\textwidth]{\centering(a)}\hspace{0.05\textwidth}\makebox[0.45\textwidth]{\centering(b)}\\[0.3cm]
+  \includegraphics[width=0.45\textwidth]{./rstar_onoff_medsig_s1_sigrel1.pdf}
+  \hspace{0.05\textwidth}
+  \includegraphics[width=0.45\textwidth]{./rstar_onoff_medsig_s2_sigrel1.pdf}\\[-0.15cm]
+  \makebox[0.45\textwidth]{\centering(c)}\hspace{0.05\textwidth}\makebox[0.45\textwidth]{\centering(d)}
+  \caption{\small Median expected discovery significance versus $b$
+    for the on/off model with fixed relative uncertainty $\sigma_b/b$:
+    (a) $s=1$, $\sigma_b/b=0.5$; (b) $s=2$, $\sigma_b/b=0.5$;
+    (c) $s=1$, $\sigma_b/b=1$; (d) $s=2$, $\sigma_b/b=1$.
+    Curves as in Fig.~\ref{fig:rstar_medsig_onoff_tau}.}
+  \label{fig:rstar_medsig_onoff_sig}
+\end{figure}
+\renewcommand{\baselinestretch}{1}
+\small\normalsize
 
 \section{Conclusions}
 \label{sec:conclusions}
@@ -526,6 +794,56 @@ uncertainty, the limiting formula severely overestimates the expected
 discovery significance, whereas the full formula is in very good
 agreement with exact Monte Carlo results.
 
+The accuracy of both the $p$-value calculation and the Asimov
+approximation to the median expected significance can be further
+improved by the higher-order $r^*$ correction of
+Eq.~(\ref{eq:rstar}).  For the simple counting experiment, applying
+the $r^*$ correction together with a continuity correction reduces the
+discrepancy between the asymptotic and exact $p$-values to a very
+small level even for expected counts as low as one.  For the on/off
+problem, $r^*$ without a continuity correction provides a clear
+improvement over the first-order approximation, with the largest gains
+at small expected event yields.  The Asimov approximation $Z_A(r^*)$ generally tracks the MC median
+significance better than $Z_A(r)$, in both the simple counting and
+on/off cases, with some exceptions in the on/off problem where the
+Asimov and $r^*$ approximation errors compound adversely.
+
+
+\appendix
+
+\section{Auxiliary statistic $q$ for general $s_0$}
+\label{app:q}
+
+The closed-form expressions for the auxiliary statistic $q(s_0)$
+entering Eq.~(\ref{eq:rstar}) are given here for general $s_0$.
+The $s_0 = 0$ specialisations are given as
+Eqs.~(\ref{eq:q_simple}) and~(\ref{eq:q_onoff}) in
+Secs.~\ref{sec:rstar_simple} and~\ref{sec:rstar_onoff}.
+
+\paragraph{Simple counting experiment.}
+With $\mu_0 = s_0 + b$,
+%
+\begin{equation}
+  \label{eq:q_simple_gen}
+  q(s_0) = \sqrt{n}\,\ln\!\frac{n}{\mu_0} \;.
+\end{equation}
+
+\paragraph{On/off problem.}
+Let $\tilde{b}(s_0)$ be the conditional MLE of $b$ given $s_0$, defined in
+Eq.~(\ref{eq:bhathat}), and let $\mu_n = s_0 + \tilde{b}$,
+$\mu_m = \tau\tilde{b}$.  Then
+%
+\begin{equation}
+  \label{eq:q_onoff_gen}
+  q(s_0) = \frac{\sqrt{nm}}{\displaystyle\sqrt{\frac{n}{\mu_n^2} +
+      \frac{m}{\tilde{b}^2}}}
+  \left(\frac{1}{\tilde{b}}\ln\frac{n}{\mu_n} -
+    \frac{1}{\mu_n}\ln\frac{m}{\mu_m}\right) \;.
+\end{equation}
+
+\noindent For $s_0 = 0$ one has $\tilde{b}(0) = \mu_n(0) =
+(n+m)/(1+\tau)$ from Eq.~(\ref{eq:bhathat0}), and the expression
+simplifies to Eq.~(\ref{eq:q_onoff}).
 
 \begin{thebibliography}{[88]}
 \bibitem{asimov} Glen Cowan, Kyle Cranmer, Eilam Gross and Ofer Vitells,
@@ -544,6 +862,20 @@ Statistical Challenges for Searches for New Physics at the LHC},
 proceedings of PhyStat2005, Oxford; arXiv:physics/0511028.
 \bibitem{Cousins08} Robert D.~Cousins, James T.~Linnemann and Jordan Tucker,
 NIM A 595 (2008) 480--501; arXiv:physics/0702156.
+\bibitem{Brazzale07} A.R.\ Brazzale, A.C.\ Davison and N.\ Reid,
+  {\it Applied Asymptotics: Case Studies in Small-Sample Statistics},
+  Cambridge University Press (2007).
+\bibitem{BN86} O.E.\ Barndorff-Nielsen,
+  {\it Inference on full or partial parameters based on the
+  standardized signed log likelihood ratio},
+  Biometrika {\bf 73} (1986) 307--322.
+\bibitem{LR80} R.\ Lugannani and S.O.\ Rice,
+  {\it Saddle point approximation for the distribution of the sum of
+  independent random variables},
+  Adv.\ Appl.\ Probab.\ {\bf 12} (1980) 475--490.
+\bibitem{Canonero23} E.\ Canonero,
+  {\it Higher-order asymptotic methods for tests of new physics},
+  arXiv:2304.10574 (2023).
 %\bibitem{pdg} K. Nakamura et al. (Particle Data Group), J. Phys. G 37,
 %  075021 (2010).
 \end{thebibliography}

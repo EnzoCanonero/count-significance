@@ -43,6 +43,7 @@ def compute_pvalues_on(
     s0: float,
     b: float,
     target_z: float = 5.0,
+    trim_to_discovery_tail: bool = True,
     continuity_correction_r: bool = False,
     continuity_correction_rstar: bool = True,
 ):
@@ -50,11 +51,14 @@ def compute_pvalues_on(
     eps = 1e-16
     mu0 = float(s0 + b)
     # Define the scan range for counts n:
-    # from n = 0 up to μ₀ + 5√μ₀ (rounded up), ensuring at least one bin.
+    # keep the last plateau point, then scan the one-sided discovery tail.
     n_min = 0
+    tail_threshold = mu0
+    first_tail_n = int(np.floor(tail_threshold)) + 1
+    start_n = max(n_min, first_tail_n - 1) if trim_to_discovery_tail else n_min
     n_max_start = max(n_min, int(np.ceil(mu0 + 5.0 * np.sqrt(mu0))))
     n_max = _n_max_for_target_z_on(s0, b, n_max_start, target_z)
-    n_vals = np.arange(n_min, n_max + 1, dtype=int)
+    n_vals = np.arange(start_n, n_max + 1, dtype=int)
 
     out = pvals_on(
         float(s0),
@@ -78,8 +82,10 @@ def compute_pvalues_on(
             "b": float(b),
             "mu0": mu0,
             "n_vals": n_vals,
-            "n_min": n_min,
+            "n_min": int(n_vals[0]),
             "n_max": n_max,
+            "tail_threshold": tail_threshold,
+            "first_tail_n": first_tail_n,
             "p_true": np.maximum(p_true, eps),
             "p_r": np.maximum(p_r, eps),
             "p_rstar": np.maximum(p_rstar, eps),
@@ -111,6 +117,7 @@ def make_plot_on(
             p_rstar = res["p_rstar"]
             rel_r = res["rel_r"]
             rel_rstar = res["rel_rstar"]
+            first_tail_n = res["first_tail_n"]
 
             if include_ratio:
                 fig, (ax_top, ax_bot) = plt.subplots(
@@ -153,11 +160,13 @@ def make_plot_on(
             )
             ax_top.set_ylabel("p-value (upper tail)")
             ax_top.set_xlim(n_min - 0.5, n_max + 0.5)
+            ax_top.axvline(first_tail_n - 0.5, color="0.55", ls=":", lw=1)
             ax_top.set_title(rf"$s_0={s0}$,  $b={b}$,  $\mu_0=s_0+b={mu0}$")
             ax_top.grid(True, which="both", alpha=0.25)
             ax_top.legend()
 
             if include_ratio:
+                ax_bot.axvline(first_tail_n - 0.5, color="0.55", ls=":", lw=1)
                 ax_bot.semilogy(
                     n_vals,
                     rel_r,
@@ -206,6 +215,7 @@ def make_significance_plot_on(results: list, out_pdf: Path, include_ratio: bool)
             p_rstar = res["p_rstar"]
             rel_r = res["rel_r"]
             rel_rstar = res["rel_rstar"]
+            first_tail_n = res["first_tail_n"]
 
             z_true = _z_from_p(p_true)
             z_r = _z_from_p(p_r)
@@ -244,11 +254,13 @@ def make_significance_plot_on(results: list, out_pdf: Path, include_ratio: bool)
             )
             ax_z.set_ylabel(r"$Z=\Phi^{-1}(1-p)$")
             ax_z.set_xlim(n_min - 0.5, n_max + 0.5)
+            ax_z.axvline(first_tail_n - 0.5, color="0.55", ls=":", lw=1)
             ax_z.set_title(rf"$s_0={s0}$,  $b={b}$,  $\mu_0=s_0+b={mu0}$")
             ax_z.grid(True, alpha=0.25)
             ax_z.legend()
 
             if include_ratio:
+                ax_bot.axvline(first_tail_n - 0.5, color="0.55", ls=":", lw=1)
                 ax_bot.semilogy(
                     n_vals,
                     rel_r,
@@ -291,6 +303,7 @@ def main(cfg_path: str):
     save_individual = bool(cfg.get("individual_plots", False))
     include_ratio = bool(cfg.get("ratio_plots", False))
     make_significance_plots = bool(cfg.get("significance_plots", cfg.get("significance_pvalue_plots", True)))
+    trim_to_discovery_tail = bool(cfg.get("trim_to_discovery_tail", True))
     continuity_correction_r = bool(cfg.get("continuity_correction_r", False))
     continuity_correction_rstar = bool(cfg.get("continuity_correction_rstar", True))
 
@@ -305,6 +318,7 @@ def main(cfg_path: str):
                 float(s0),
                 float(b),
                 target_z=target_z,
+                trim_to_discovery_tail=trim_to_discovery_tail,
                 continuity_correction_r=continuity_correction_r,
                 continuity_correction_rstar=continuity_correction_rstar,
             )
