@@ -30,4 +30,5 @@ parallelization/logs/
 parallelization/output/
 parallelization/onoff_medsig.pdf
 
-
+# Paper build/output directory
+paper/
