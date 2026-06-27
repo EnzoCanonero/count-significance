@@ -7,6 +7,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.lines import Line2D
 from scipy.stats import norm, poisson
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -379,24 +380,18 @@ def make_significance_plots_onoff(
     reference_label: str,
     include_ratio: bool,
 ):
-    """Render significance panels, optionally with relative-difference panels below."""
-    with PdfPages(out_pdf) as pdf:
-        for res in results:
-            s0 = res["s0"]
-            b = res["b"]
-            tau = res["tau"]
-            m0 = res["m0"]
-            n_vals = res["n_vals"]
-            p_r = res["p_r"]
-            p_rstar = res["p_rstar"]
-            p_mc = res["p_mc"]
-            rel_r = res["rel_r"]
-            rel_rstar = res["rel_rstar"]
-            first_tail_n = res["first_tail_n"]
+    """Significance vs n0 with all OFF-count (m0) slices overlaid per (s0, b, tau).
 
-            z_mc = _z_from_p(p_mc)
-            z_r = _z_from_p(p_r)
-            z_rstar = _z_from_p(p_rstar)
+    Marker and colour encode the STATISTIC (fixed across m0); the m0 slices are
+    drawn in the same style and overlaid, so their spread is read off directly.
+    """
+    grouped = defaultdict(list)
+    for res in results:
+        grouped[(res["s0"], res["b"], res["tau"])].append(res)
+
+    with PdfPages(out_pdf) as pdf:
+        for (s0, b, tau), group in sorted(grouped.items()):
+            group = sorted(group, key=lambda item: item["m0"])
 
             if include_ratio:
                 fig, (ax_z, ax_bot) = plt.subplots(
@@ -410,51 +405,46 @@ def make_significance_plots_onoff(
                 fig, ax_z = plt.subplots(figsize=(12, 6))
                 ax_bot = None
 
-            ax_z.plot(n_vals, z_r, marker="o", linestyle="None", ms=5, label=r"$r$", color="tab:blue")
-            ax_z.plot(
-                n_vals,
-                z_rstar,
-                marker="^",
-                linestyle="None",
-                ms=5,
-                label=r"$r^\ast$",
-                color="tab:orange",
-            )
-            ax_z.plot(n_vals, z_mc, marker="x", linestyle="None", ms=4, label=reference_label, color="tab:green")
-            ax_z.axvline(first_tail_n - 0.5, color="0.55", ls=":", lw=1)
+            n_lo, n_hi = np.inf, -np.inf
+            for res in group:
+                n_vals = res["n_vals"]
+                n_lo = min(n_lo, int(n_vals[0]))
+                n_hi = max(n_hi, int(n_vals[-1]))
+
+                z_r = _z_from_p(res["p_r"])
+                z_rstar = _z_from_p(res["p_rstar"])
+                z_mc = _z_from_p(res["p_mc"])
+
+                ax_z.plot(n_vals, z_r, marker="o", linestyle="None", ms=5, color="tab:blue")
+                ax_z.plot(n_vals, z_rstar, marker="^", linestyle="None", ms=5, color="tab:orange")
+                ax_z.plot(n_vals, z_mc, marker="x", linestyle="None", ms=4, color="tab:green")
+
+                if include_ratio:
+                    ax_bot.semilogy(n_vals, res["rel_r"], marker="o", linestyle="None", ms=4, color="tab:blue")
+                    ax_bot.semilogy(n_vals, res["rel_rstar"], marker="^", linestyle="None", ms=4, color="tab:orange")
+
+            # legend encodes only the statistic (identical style across m0)
+            stat_handles = [
+                Line2D([0], [0], color="tab:blue", marker="o", ls="none", ms=7, label=r"$r$"),
+                Line2D([0], [0], color="tab:orange", marker="^", ls="none", ms=7, label=r"$r^\ast$"),
+                Line2D([0], [0], color="tab:green", marker="x", ls="none", ms=7, label=reference_label),
+            ]
+
+            m_list = ", ".join(str(res["m0"]) for res in group)
             ax_z.set_ylabel(r"$Z=\Phi^{-1}(1-p)$")
-            ax_z.set_xlim(n_vals[0] - 0.5, n_vals[-1] + 0.5)
+            ax_z.set_xlim(n_lo - 0.5, n_hi + 0.5)
             ax_z.set_title(
-                rf"$m_0={m0}$,  $s_0={s0}$,  $b={b}$,  $\tau={tau}$,  "
+                rf"$m_0\in\{{{m_list}\}}$,  $s_0={s0}$,  $b={b}$,  $\tau={tau}$,  "
                 + _reference_title(reference_label, sigrel)
             )
             ax_z.grid(True, alpha=0.25)
-            ax_z.legend()
+            ax_z.legend(handles=stat_handles)
 
             if include_ratio:
-                ax_bot.axvline(first_tail_n - 0.5, color="0.55", ls=":", lw=1)
-                ax_bot.semilogy(
-                    n_vals,
-                    rel_r,
-                    marker="o",
-                    linestyle="None",
-                    ms=4,
-                    label=r"$|p_r-p_\mathrm{ref}|/p_\mathrm{ref}$",
-                    color="tab:blue",
-                )
-                ax_bot.semilogy(
-                    n_vals,
-                    rel_rstar,
-                    marker="^",
-                    linestyle="None",
-                    ms=4,
-                    label=r"$|p_{r^\ast}-p_\mathrm{ref}|/p_\mathrm{ref}$",
-                    color="tab:orange",
-                )
                 ax_bot.set_xlabel(r"$n_0$ (observed ON counts)")
                 ax_bot.set_ylabel("rel. abs. diff")
                 ax_bot.grid(True, which="both", alpha=0.25)
-                ax_bot.legend()
+                ax_bot.legend(handles=stat_handles[:2])
             else:
                 ax_z.set_xlabel(r"$n_0$ (observed ON counts)")
 
