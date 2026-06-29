@@ -15,6 +15,48 @@ from src.common import load_yaml
 from src.lognormal import expected_significance_lognormal
 
 
+PLOT_FIGSIZE = (6.5, 6.5)
+
+
+def _configure_plot_style():
+    plt.rcParams.update(
+        {
+            "font.size": 16,
+            "axes.labelsize": 20,
+            "xtick.labelsize": 16,
+            "ytick.labelsize": 16,
+            "legend.fontsize": 14,
+            "lines.linewidth": 2.2,
+            "lines.markersize": 7,
+        }
+    )
+
+
+def _finish_axes(ax):
+    ax.tick_params(axis="both", which="major", labelsize=16, width=1.3, length=6)
+    ax.tick_params(axis="both", which="minor", width=1.0, length=3)
+    for spine in ax.spines.values():
+        spine.set_linewidth(1.2)
+
+
+def _medsig_ymax(*arrays) -> float:
+    values = np.concatenate([np.ravel(np.asarray(array, dtype=float)) for array in arrays])
+    values = values[np.isfinite(values)]
+    if values.size == 0:
+        return 1.0
+    return max(float(np.max(values)) * 1.04, 1.0)
+
+
+def _style_medsig_axes(ax, b0_values: np.ndarray, y_max: float):
+    ax.set_xscale("log")
+    ax.set_xlim(float(b0_values[0]), float(b0_values[-1]))
+    ax.set_xlabel(r"$b_0$")
+    ax.set_ylabel(r"$\mathrm{med}[Z_0|1]$")
+    ax.set_ylim(bottom=-0.5, top=y_max)
+    ax.grid(True, which="both", ls="--", alpha=0.35)
+    _finish_axes(ax)
+
+
 def _fmt(x):
     return f"{x:g}".replace(".", "p").replace("-", "m")
 
@@ -82,16 +124,16 @@ def make_plots_lognormal_medsig(
     with PdfPages(out_pdf) as pdf:
         for s_idx, s_true in enumerate(s_vec):
             for sig_idx, sigma in enumerate(sigma_vec):
-                fig, ax = plt.subplots(figsize=(8, 5), dpi=150)
+                fig, ax = plt.subplots(figsize=PLOT_FIGSIZE, dpi=150)
 
                 if "r" in asimov_statistics:
-                    ax.plot(b0_values, Z_A_r[s_idx, sig_idx], label=r"Asimov $r$")
+                    ax.plot(b0_values, Z_A_r[s_idx, sig_idx], label=r"Asimov $q$")
                 if "rstar" in asimov_statistics:
                     ax.plot(
                         b0_values,
                         Z_A_rstar[s_idx, sig_idx],
                         "--",
-                        label=r"Asimov $r^\ast$",
+                        label=r"Asimov $q^\ast$",
                     )
                 if "median" in mc_statistics:
                     ax.plot(
@@ -110,12 +152,7 @@ def make_plots_lognormal_medsig(
                         label=r"MC mean $Z$",
                     )
 
-                ax.set_xscale("log")
-                ax.set_xlabel(r"$b_0$")
-                ax.set_ylabel(r"$Z$")
-                ax.set_ylim(bottom=-1)
-                ax.grid(True, which="both", ls="--", alpha=0.35)
-                ax.set_title(rf"$s_\mathrm{{true}} = {s_true}$, $\sigma = {sigma}$")
+                _style_medsig_axes(ax, b0_values, _medsig_ymax(Z_A_r[s_idx, sig_idx]))
                 ax.legend(frameon=False)
                 plt.tight_layout()
                 if save_individual:
@@ -126,6 +163,8 @@ def make_plots_lognormal_medsig(
 
 
 def main(cfg_path: str):
+    _configure_plot_style()
+
     cfg = load_yaml(cfg_path)
     s_vec = np.asarray(cfg["s_vec"], dtype=float)
     sigma_vec = np.asarray(cfg["sigma_vec"], dtype=float)

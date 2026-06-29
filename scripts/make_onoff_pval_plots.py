@@ -18,6 +18,80 @@ from src.common import load_yaml
 from src.on_off import b_profiled, pvals_onoff, r_star_onoff, r_stat_onoff
 
 
+PLOT_FIGSIZE = (6.5, 6.5)
+
+
+def _configure_plot_style():
+    plt.rcParams.update(
+        {
+            "font.size": 16,
+            "axes.labelsize": 20,
+            "xtick.labelsize": 16,
+            "ytick.labelsize": 16,
+            "legend.fontsize": 14,
+            "lines.markersize": 7,
+        }
+    )
+
+
+def _finish_axes(*axes):
+    for ax in axes:
+        if ax is None:
+            continue
+        ax.tick_params(axis="both", which="major", labelsize=16, width=1.3, length=6)
+        ax.tick_params(axis="both", which="minor", width=1.0, length=3)
+        for spine in ax.spines.values():
+            spine.set_linewidth(1.2)
+
+
+def _legend_kwargs():
+    return {
+        "frameon": False,
+        "fontsize": 11,
+        "borderaxespad": 0.2,
+        "handlelength": 1.8,
+        "handletextpad": 0.7,
+        "labelspacing": 0.45,
+    }
+
+
+def _add_stat_and_m_legends(
+    ax,
+    m_values: list,
+    colors: list,
+    reference_label: str,
+    include_reference: bool = True,
+    loc: str = "upper right",
+    stat_anchor: tuple = (0.98, 0.98),
+    m_anchor: tuple = (0.98, 0.74),
+):
+    stat_handles = [
+        Line2D([0], [0], color="0.15", marker="o", ls="none", ms=7, label=r"$q$"),
+        Line2D([0], [0], color="0.15", marker="^", ls="none", ms=7, label=r"$q^\ast$"),
+    ]
+    if include_reference:
+        stat_handles.append(Line2D([0], [0], color="0.15", marker="x", ls="none", ms=7, label=reference_label))
+
+    stat_legend = ax.legend(
+        handles=stat_handles,
+        loc=loc,
+        bbox_to_anchor=stat_anchor,
+        **_legend_kwargs(),
+    )
+    ax.add_artist(stat_legend)
+
+    m_handles = [
+        Line2D([0], [0], color=colors[idx % len(colors)], lw=2.2, label=rf"$m_0={m0:g}$")
+        for idx, m0 in enumerate(m_values)
+    ]
+    ax.legend(
+        handles=m_handles,
+        loc=loc,
+        bbox_to_anchor=m_anchor,
+        **_legend_kwargs(),
+    )
+
+
 def _fmt(x):
     return f"{x:g}".replace(".", "p")
 
@@ -34,6 +108,22 @@ def _candidate_off_counts(mu_b: float, sigma_offsets=(-1.0, 0.0, 1.0)) -> np.nda
     )
 
     return np.unique(np.sort(m0_raw))
+
+
+def _ensure_min_off_counts(m0_list: np.ndarray, min_count: int = 3) -> np.ndarray:
+    """Pad the OFF-count slices with consecutive larger integers for plotting stability."""
+    m0_list = np.unique(np.sort(np.asarray(m0_list, dtype=int)))
+    min_count = max(int(min_count), 0)
+    if m0_list.size >= min_count:
+        return m0_list
+
+    next_m0 = int(m0_list[-1]) + 1 if m0_list.size else 1
+    extra = []
+    while m0_list.size + len(extra) < min_count:
+        extra.append(next_m0)
+        next_m0 += 1
+
+    return np.unique(np.sort(np.concatenate([m0_list, np.asarray(extra, dtype=int)])))
 
 
 def _tail_on_counts(s0: float, m0: int, tau: float, n_min: int, n_max: int) -> np.ndarray:
@@ -168,6 +258,7 @@ def compute_pvalues_onoff(
     reference_method: str = "exact",
     reference_tail_mass: float = 1e-12,
     max_n: int = 10_000,
+    min_m0_values: int = 3,
     continuity_correction_r: bool = False,
     continuity_correction_rstar: bool = True,
 ):
@@ -183,6 +274,7 @@ def compute_pvalues_onoff(
     if drop_zero_m0:
         nonzero_m0 = m0_list[m0_list != 0]
         m0_list = nonzero_m0 if nonzero_m0.size > 0 else np.array([1], dtype=int)
+    m0_list = _ensure_min_off_counts(m0_list, min_m0_values)
 
     # Define the scan range for ON counts n0:
     # from n = 0 up to μ_s + 5√μ_s (rounded up), ensuring at least one bin.
@@ -271,103 +363,70 @@ def make_plots_onoff(
     include_ratio: bool,
     reference_label: str,
 ):
-    """Render p-value and relative-diff panels for all on/off configurations."""
-    with PdfPages(out_pdf) as pdf:
-        for res in results:
-            s0 = res["s0"]
-            b = res["b"]
-            tau = res["tau"]
-            m0 = res["m0"]
-            n_vals = res["n_vals"]
-            p_r = res["p_r"]
-            p_rstar = res["p_rstar"]
-            p_mc = res["p_mc"]
-            p_err = res["p_err"]
-            rel_r = res["rel_r"]
-            rel_rstar = res["rel_rstar"]
-            first_tail_n = res["first_tail_n"]
+    """Render p-value panels with colour encoding m0 and marker encoding the statistic."""
+    grouped = defaultdict(list)
+    for res in results:
+        grouped[(res["s0"], res["b"], res["tau"])].append(res)
 
+    with PdfPages(out_pdf) as pdf:
+        colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+        for (s0, b, tau), group in sorted(grouped.items()):
+            group = sorted(group, key=lambda item: item["m0"])
             if include_ratio:
                 fig, (ax_top, ax_bot) = plt.subplots(
                     2,
                     1,
-                    figsize=(12, 9),
+                    figsize=PLOT_FIGSIZE,
                     sharex=True,
                     gridspec_kw={"height_ratios": [3.5, 1.2]},
                 )
             else:
-                fig, ax_top = plt.subplots(figsize=(12, 6))
+                fig, ax_top = plt.subplots(figsize=PLOT_FIGSIZE)
                 ax_bot = None
 
-            ax_top.semilogy(
-                n_vals,
-                p_r,
-                marker="o",
-                linestyle="None",
-                ms=5,
-                label="1 − Φ(r)",
-                color="tab:blue",
-            )
-            ax_top.semilogy(
-                n_vals,
-                p_rstar,
-                marker="^",
-                linestyle="None",
-                ms=5,
-                label="1 − Φ(r*)",
-                color="tab:orange",
-            )
-            ax_top.errorbar(
-                n_vals,
-                p_mc,
-                yerr=p_err,
-                fmt="x",
-                ms=4,
-                lw=1,
-                capsize=2,
-                label=reference_label,
-                color="tab:green",
-            )
+            n_lo, n_hi = np.inf, -np.inf
+            for idx, res in enumerate(group):
+                color = colors[idx % len(colors)]
+                n_vals = res["n_vals"]
+                n_lo = min(n_lo, int(n_vals[0]))
+                n_hi = max(n_hi, int(n_vals[-1]))
+
+                ax_top.semilogy(n_vals, res["p_r"], marker="o", linestyle="None", ms=5, color=color)
+                ax_top.semilogy(n_vals, res["p_rstar"], marker="^", linestyle="None", ms=5, color=color)
+                ax_top.errorbar(
+                    n_vals,
+                    res["p_mc"],
+                    yerr=res["p_err"],
+                    fmt="x",
+                    ms=4,
+                    lw=1,
+                    capsize=2,
+                    color=color,
+                )
+                ax_top.axvline(res["first_tail_n"] - 0.5, color=color, ls=":", lw=1, alpha=0.35)
+
+                if include_ratio:
+                    ax_bot.axvline(res["first_tail_n"] - 0.5, color=color, ls=":", lw=1, alpha=0.35)
+                    ax_bot.semilogy(n_vals, res["rel_r"], marker="o", linestyle="None", ms=4, color=color)
+                    ax_bot.semilogy(n_vals, res["rel_rstar"], marker="^", linestyle="None", ms=4, color=color)
+
             ax_top.set_ylabel("p-value (upper tail)")
-            ax_top.set_xlim(n_vals[0] - 0.5, n_vals[-1] + 0.5)
-            ax_top.axvline(first_tail_n - 0.5, color="0.55", ls=":", lw=1)
-            ax_top.set_title(
-                rf"$m_0={m0}$,  $s_0={s0}$,  $b={b}$,  $\tau={tau}$,  "
-                + _reference_title(reference_label, sigrel)
-            )
+            ax_top.set_xlim(n_lo, n_hi)
             ax_top.grid(True, which="both", alpha=0.25)
-            ax_top.legend()
+            _add_stat_and_m_legends(ax_top, [res["m0"] for res in group], colors, reference_label)
 
             if include_ratio:
-                ax_bot.axvline(first_tail_n - 0.5, color="0.55", ls=":", lw=1)
-                ax_bot.semilogy(
-                    n_vals,
-                    rel_r,
-                    marker="o",
-                    linestyle="None",
-                    ms=4,
-                    label=rf"$|r - {reference_label}|/{reference_label}$",
-                    color="tab:blue",
-                )
-                ax_bot.semilogy(
-                    n_vals,
-                    rel_rstar,
-                    marker="^",
-                    linestyle="None",
-                    ms=4,
-                    label=rf"$|r^\ast - {reference_label}|/{reference_label}$",
-                    color="tab:orange",
-                )
                 ax_bot.set_xlabel(r"$n_0$ (observed ON counts)")
                 ax_bot.set_ylabel("rel. abs. diff")
+                ax_bot.set_xlim(n_lo, n_hi)
                 ax_bot.grid(True, which="both", alpha=0.25)
-                ax_bot.legend()
             else:
                 ax_top.set_xlabel(r"$n_0$ (observed ON counts)")
 
+            _finish_axes(ax_top, ax_bot)
             plt.tight_layout()
             if save_individual:
-                fname = out_pdf.parent / f"onoff_pval_s{_fmt(s0)}_b{_fmt(b)}_tau{_fmt(tau)}_m{m0}.pdf"
+                fname = out_pdf.parent / f"onoff_pval_s{_fmt(s0)}_b{_fmt(b)}_tau{_fmt(tau)}.pdf"
                 fig.savefig(fname)
             pdf.savefig(fig)
             plt.close(fig)
@@ -380,16 +439,13 @@ def make_significance_plots_onoff(
     reference_label: str,
     include_ratio: bool,
 ):
-    """Significance vs n0 with all OFF-count (m0) slices overlaid per (s0, b, tau).
-
-    Marker and colour encode the STATISTIC (fixed across m0); the m0 slices are
-    drawn in the same style and overlaid, so their spread is read off directly.
-    """
+    """Significance vs n0 with colour encoding m0 and marker encoding the statistic."""
     grouped = defaultdict(list)
     for res in results:
         grouped[(res["s0"], res["b"], res["tau"])].append(res)
 
     with PdfPages(out_pdf) as pdf:
+        colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
         for (s0, b, tau), group in sorted(grouped.items()):
             group = sorted(group, key=lambda item: item["m0"])
 
@@ -397,16 +453,17 @@ def make_significance_plots_onoff(
                 fig, (ax_z, ax_bot) = plt.subplots(
                     2,
                     1,
-                    figsize=(12, 9),
+                    figsize=PLOT_FIGSIZE,
                     sharex=True,
                     gridspec_kw={"height_ratios": [3.5, 1.2]},
                 )
             else:
-                fig, ax_z = plt.subplots(figsize=(12, 6))
+                fig, ax_z = plt.subplots(figsize=PLOT_FIGSIZE)
                 ax_bot = None
 
             n_lo, n_hi = np.inf, -np.inf
-            for res in group:
+            for idx, res in enumerate(group):
+                color = colors[idx % len(colors)]
                 n_vals = res["n_vals"]
                 n_lo = min(n_lo, int(n_vals[0]))
                 n_hi = max(n_hi, int(n_vals[-1]))
@@ -415,53 +472,50 @@ def make_significance_plots_onoff(
                 z_rstar = _z_from_p(res["p_rstar"])
                 z_mc = _z_from_p(res["p_mc"])
 
-                ax_z.plot(n_vals, z_r, marker="o", linestyle="None", ms=5, color="tab:blue")
-                ax_z.plot(n_vals, z_rstar, marker="^", linestyle="None", ms=5, color="tab:orange")
-                ax_z.plot(n_vals, z_mc, marker="x", linestyle="None", ms=4, color="tab:green")
+                ax_z.plot(n_vals, z_r, marker="o", linestyle="None", ms=5, color=color)
+                ax_z.plot(n_vals, z_rstar, marker="^", linestyle="None", ms=5, color=color)
+                ax_z.plot(n_vals, z_mc, marker="x", linestyle="None", ms=4, color=color)
 
                 if include_ratio:
-                    ax_bot.semilogy(n_vals, res["rel_r"], marker="o", linestyle="None", ms=4, color="tab:blue")
-                    ax_bot.semilogy(n_vals, res["rel_rstar"], marker="^", linestyle="None", ms=4, color="tab:orange")
+                    ax_bot.semilogy(n_vals, res["rel_r"], marker="o", linestyle="None", ms=4, color=color)
+                    ax_bot.semilogy(n_vals, res["rel_rstar"], marker="^", linestyle="None", ms=4, color=color)
 
-            # legend encodes only the statistic (identical style across m0)
-            stat_handles = [
-                Line2D([0], [0], color="tab:blue", marker="o", ls="none", ms=7, label=r"$r$"),
-                Line2D([0], [0], color="tab:orange", marker="^", ls="none", ms=7, label=r"$r^\ast$"),
-                Line2D([0], [0], color="tab:green", marker="x", ls="none", ms=7, label=reference_label),
-            ]
-
-            m_list = ", ".join(str(res["m0"]) for res in group)
-            ax_z.set_ylabel(r"$Z=\Phi^{-1}(1-p)$")
-            ax_z.set_xlim(n_lo - 0.5, n_hi + 0.5)
-            ax_z.set_title(
-                rf"$m_0\in\{{{m_list}\}}$,  $s_0={s0}$,  $b={b}$,  $\tau={tau}$,  "
-                + _reference_title(reference_label, sigrel)
-            )
+            ax_z.set_ylabel(r"$Z$")
+            ax_z.set_xlim(n_lo, n_hi)
             ax_z.grid(True, alpha=0.25)
-            ax_z.legend(handles=stat_handles)
+            _add_stat_and_m_legends(
+                ax_z,
+                [res["m0"] for res in group],
+                colors,
+                reference_label,
+                loc="lower right",
+                stat_anchor=(0.98, 0.02),
+                m_anchor=(0.98, 0.26),
+            )
 
             if include_ratio:
                 ax_bot.set_xlabel(r"$n_0$ (observed ON counts)")
                 ax_bot.set_ylabel("rel. abs. diff")
+                ax_bot.set_xlim(n_lo, n_hi)
                 ax_bot.grid(True, which="both", alpha=0.25)
-                ax_bot.legend(handles=stat_handles[:2])
             else:
                 ax_z.set_xlabel(r"$n_0$ (observed ON counts)")
 
+            _finish_axes(ax_z, ax_bot)
             plt.tight_layout()
             pdf.savefig(fig)
             plt.close(fig)
 
 
 def make_improvement_plots_onoff(results: list, out_pdf: Path, reference_label: str):
-    """Render separate pages showing where r* is closer to MC than r."""
+    """Render separate pages showing where q* is closer to MC than q."""
     grouped = defaultdict(list)
     for res in results:
         grouped[(res["s0"], res["b"], res["tau"])].append(res)
 
     with PdfPages(out_pdf) as pdf:
         for (s0, b, tau), group in sorted(grouped.items()):
-            fig, ax = plt.subplots(figsize=(10, 6), dpi=150)
+            fig, ax = plt.subplots(figsize=PLOT_FIGSIZE, dpi=150)
 
             for res in sorted(group, key=lambda item: item["m0"]):
                 n_vals = res["n_vals"]
@@ -481,19 +535,18 @@ def make_improvement_plots_onoff(results: list, out_pdf: Path, reference_label: 
 
             ax.axhline(0.0, color="0.25", lw=1)
             ax.set_xlabel(r"$n_0$ (observed ON counts)")
-            ax.set_ylabel(rf"$|Z_r - Z_\mathrm{{ref}}| - |Z_{{r^\ast}} - Z_\mathrm{{ref}}|$")
-            ax.set_title(
-                rf"$r^\ast$ improvement,  $s_0={s0}$,  $b={b}$,  $\tau={tau}$"
-                f"\npositive values mean $r^\\ast$ is closer to {reference_label}"
-            )
+            ax.set_ylabel(rf"$|Z_q - Z_\mathrm{{ref}}| - |Z_{{q^\ast}} - Z_\mathrm{{ref}}|$")
             ax.grid(True, alpha=0.25)
             ax.legend(frameon=False)
+            _finish_axes(ax)
             plt.tight_layout()
             pdf.savefig(fig)
             plt.close(fig)
 
 
 def main(cfg_path: str):
+    _configure_plot_style()
+
     cfg = load_yaml(cfg_path)
     s0_vec = np.asarray(cfg["s_vec"], dtype=float)
     b_vec = np.asarray(cfg["b_vec"], dtype=float)
@@ -504,6 +557,7 @@ def main(cfg_path: str):
     reference_method = str(cfg.get("reference_method", "exact")).lower()
     reference_tail_mass = float(cfg.get("reference_tail_mass", 1e-12))
     max_n = int(cfg.get("max_n", 10_000))
+    min_m0_values = int(cfg.get("min_m0_values", 3))
     reference_label = "Exact" if reference_method == "exact" else "MC"
     out_pdf = Path(cfg["out_pdf"])
     out_improvement_pdf = Path(
@@ -541,6 +595,7 @@ def main(cfg_path: str):
                 reference_method=reference_method,
                 reference_tail_mass=reference_tail_mass,
                 max_n=max_n,
+                min_m0_values=min_m0_values,
                 continuity_correction_r=continuity_correction_r,
                 continuity_correction_rstar=continuity_correction_rstar,
             )
@@ -562,7 +617,7 @@ def main(cfg_path: str):
     if make_significance_plots:
         print(f"Saved significance plots to: {out_significance_pdf.resolve()}")
     if make_improvement_plots:
-        print(f"Saved r* improvement plots to: {out_improvement_pdf.resolve()}")
+        print(f"Saved q* improvement plots to: {out_improvement_pdf.resolve()}")
 
 
 if __name__ == "__main__":

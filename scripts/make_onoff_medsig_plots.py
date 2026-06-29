@@ -5,6 +5,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.lines import Line2D
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -12,6 +13,63 @@ if str(ROOT) not in sys.path:
 
 from src.common import load_yaml
 from src.on_off import expected_significance_onoff
+
+
+PLOT_FIGSIZE = (6.5, 6.5)
+
+
+def _configure_plot_style():
+    plt.rcParams.update(
+        {
+            "font.size": 16,
+            "axes.labelsize": 20,
+            "xtick.labelsize": 16,
+            "ytick.labelsize": 16,
+            "legend.fontsize": 14,
+            "lines.linewidth": 2.2,
+            "lines.markersize": 7,
+        }
+    )
+
+
+def _finish_axes(ax):
+    ax.tick_params(axis="both", which="major", labelsize=16, width=1.3, length=6)
+    ax.tick_params(axis="both", which="minor", width=1.0, length=3)
+    for spine in ax.spines.values():
+        spine.set_linewidth(1.2)
+
+
+def _medsig_ymax(*arrays) -> float:
+    values = np.concatenate([np.ravel(np.asarray(array, dtype=float)) for array in arrays])
+    values = values[np.isfinite(values)]
+    if values.size == 0:
+        return 1.0
+    return max(float(np.max(values)) * 1.04, 1.0)
+
+
+def _style_medsig_axes(ax, b_values: np.ndarray, y_max: float):
+    ax.set_xscale("log")
+    ax.set_xlim(float(b_values[0]), float(b_values[-1]))
+    ax.set_xlabel(r"$b$")
+    ax.set_ylabel(r"$\mathrm{med}[Z_0|1]$")
+    ax.set_ylim(bottom=-0.5, top=y_max)
+    ax.grid(True, which="both", ls="--", alpha=0.35)
+    _finish_axes(ax)
+
+
+def _naive_z_fixed_tau(s_true: float, b_values: np.ndarray, tau: float) -> np.ndarray:
+    sigma_b2 = b_values / float(tau)
+    return float(s_true) / np.sqrt(b_values + sigma_b2)
+
+
+def _naive_z_fixed_sigrel(s_true: float, b_values: np.ndarray, sigma_rel: float) -> np.ndarray:
+    sigma_b2 = (float(sigma_rel) * b_values) ** 2
+    return float(s_true) / np.sqrt(b_values + sigma_b2)
+
+
+def _format_output_path(template: str, s_true: float) -> Path:
+    return Path(str(template).format(s=_fmt(s_true), s_value=f"{float(s_true):g}"))
+
 
 # Call graph (on/off medsig)
 # - main: load config, prepare b grids, then run experiments and plot
@@ -121,16 +179,22 @@ def make_plots_onoff(
     with PdfPages(out_pdf) as pdf:
         for s_idx, s_true in enumerate(s_vec):
             for tau_idx, tau in enumerate(tau_vec):
-                fig, ax = plt.subplots(figsize=(8, 5), dpi=150)
+                fig, ax = plt.subplots(figsize=PLOT_FIGSIZE, dpi=150)
                 if "r" in asimov_statistics:
-                    ax.plot(b_values_tau, Z_A_r_tau[s_idx, tau_idx], label=r"Asimov $r$ (on/off)")
+                    ax.plot(b_values_tau, Z_A_r_tau[s_idx, tau_idx], label=r"Asimov $q$ (on/off)")
                 if "rstar" in asimov_statistics:
                     ax.plot(
                         b_values_tau,
                         Z_A_rstar_tau[s_idx, tau_idx],
                         "--",
-                        label=r"Asimov $r^\ast$ (on/off)",
+                        label=r"Asimov $q^\ast$ (on/off)",
                     )
+                ax.plot(
+                    b_values_tau,
+                    _naive_z_fixed_tau(float(s_true), b_values_tau, float(tau)),
+                    ":",
+                    label=r"$s/\sqrt{b+\sigma_b^2}$",
+                )
                 if "median" in mc_statistics:
                     ax.plot(
                         b_values_tau,
@@ -147,12 +211,7 @@ def make_plots_onoff(
                         marker="+",
                         label=r"MC mean $Z$",
                     )
-                ax.set_xscale("log")
-                ax.set_xlabel(r"$b$")
-                ax.set_ylabel(r"$r,\, r^\ast,\, Z$")
-                ax.set_ylim(bottom=-1, top=6)
-                ax.grid(True, which="both", ls="--", alpha=0.35)
-                ax.set_title(rf"$s_\mathrm{{true}} = {s_true}$, fixed $\tau = {tau}$")
+                _style_medsig_axes(ax, b_values_tau, _medsig_ymax(Z_A_r_tau[s_idx, tau_idx]))
                 ax.legend(frameon=False, loc="upper right")
                 plt.tight_layout()
                 if save_individual:
@@ -162,16 +221,22 @@ def make_plots_onoff(
                 plt.close(fig)
 
             for sig_idx, sigma_rel in enumerate(rel_sig_vec):
-                fig, ax = plt.subplots(figsize=(8, 5), dpi=150)
+                fig, ax = plt.subplots(figsize=PLOT_FIGSIZE, dpi=150)
                 if "r" in asimov_statistics:
-                    ax.plot(b_values_sig, Z_A_r_sig[s_idx, sig_idx], label=r"Asimov $r$ (on/off)")
+                    ax.plot(b_values_sig, Z_A_r_sig[s_idx, sig_idx], label=r"Asimov $q$ (on/off)")
                 if "rstar" in asimov_statistics:
                     ax.plot(
                         b_values_sig,
                         Z_A_rstar_sig[s_idx, sig_idx],
                         "--",
-                        label=r"Asimov $r^\ast$ (on/off)",
+                        label=r"Asimov $q^\ast$ (on/off)",
                     )
+                ax.plot(
+                    b_values_sig,
+                    _naive_z_fixed_sigrel(float(s_true), b_values_sig, float(sigma_rel)),
+                    ":",
+                    label=r"$s/\sqrt{b+\sigma_b^2}$",
+                )
                 if "median" in mc_statistics:
                     ax.plot(
                         b_values_sig,
@@ -188,16 +253,7 @@ def make_plots_onoff(
                         marker="+",
                         label=r"MC mean $Z$",
                     )
-                ax.set_xscale("log")
-                ax.set_xlabel(r"$b$")
-                ax.set_ylabel(r"$r,\, r^\ast,\, Z$")
-                ax.set_ylim(bottom=-1, top=8)
-                ax.grid(True, which="both", ls="--", alpha=0.35)
-                ax.set_title(
-                    rf"$s_\mathrm{{true}} = {s_true}$, "
-                    rf"fixed $\sigma_b/b = {sigma_rel}$ "
-                    r"(i.e. $\tau(b)=1/(\sigma_\mathrm{rel}^2\,b)$)"
-                )
+                _style_medsig_axes(ax, b_values_sig, _medsig_ymax(Z_A_r_sig[s_idx, sig_idx]))
                 ax.legend(frameon=False, loc="upper right")
                 plt.tight_layout()
                 if save_individual:
@@ -207,7 +263,147 @@ def make_plots_onoff(
                 plt.close(fig)
 
 
+def make_combined_tau_plots(
+    s_vec: np.ndarray,
+    tau_vec: np.ndarray,
+    b_values: np.ndarray,
+    Z_A_r_tau: np.ndarray,
+    Z_A_rstar_tau: np.ndarray,
+    Z_med_tau: np.ndarray,
+    out_template: str,
+    mc_statistics: list,
+    asimov_statistics: list,
+):
+    """Save one fixed-tau combined panel per signal strength."""
+    colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+
+    for s_idx, s_true in enumerate(s_vec):
+        out_pdf = _format_output_path(out_template, float(s_true))
+        out_pdf.parent.mkdir(parents=True, exist_ok=True)
+        fig, ax = plt.subplots(figsize=PLOT_FIGSIZE, dpi=150)
+
+        for tau_idx, tau in enumerate(tau_vec):
+            color = colors[tau_idx % len(colors)]
+            if "r" in asimov_statistics:
+                ax.plot(b_values, Z_A_r_tau[s_idx, tau_idx], color=color, linestyle="-")
+            if "rstar" in asimov_statistics:
+                ax.plot(b_values, Z_A_rstar_tau[s_idx, tau_idx], color=color, linestyle="--")
+            ax.plot(b_values, _naive_z_fixed_tau(float(s_true), b_values, float(tau)), color=color, linestyle=":")
+            if "median" in mc_statistics:
+                ax.plot(b_values, Z_med_tau[s_idx, tau_idx], color=color, linestyle="None", marker="x")
+
+        _style_medsig_axes(ax, b_values, _medsig_ymax(Z_A_r_tau[s_idx]))
+        _add_combined_legends(
+            ax,
+            labels=[rf"$\tau={tau:g}$" for tau in tau_vec],
+            colors=colors,
+            n_configs=len(tau_vec),
+            mc_statistics=mc_statistics,
+            asimov_statistics=asimov_statistics,
+        )
+        plt.tight_layout()
+        fig.savefig(out_pdf)
+        plt.close(fig)
+        print(f"Saved combined fixed-tau plot to: {out_pdf.resolve()}")
+
+
+def make_combined_sigrel_plots(
+    s_vec: np.ndarray,
+    rel_sig_vec: np.ndarray,
+    b_values: np.ndarray,
+    Z_A_r_sig: np.ndarray,
+    Z_A_rstar_sig: np.ndarray,
+    Z_med_sig: np.ndarray,
+    out_template: str,
+    mc_statistics: list,
+    asimov_statistics: list,
+):
+    """Save one fixed-relative-uncertainty combined panel per signal strength."""
+    colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+
+    for s_idx, s_true in enumerate(s_vec):
+        out_pdf = _format_output_path(out_template, float(s_true))
+        out_pdf.parent.mkdir(parents=True, exist_ok=True)
+        fig, ax = plt.subplots(figsize=PLOT_FIGSIZE, dpi=150)
+
+        for sig_idx, sigma_rel in enumerate(rel_sig_vec):
+            color = colors[sig_idx % len(colors)]
+            if "r" in asimov_statistics:
+                ax.plot(b_values, Z_A_r_sig[s_idx, sig_idx], color=color, linestyle="-")
+            if "rstar" in asimov_statistics:
+                ax.plot(b_values, Z_A_rstar_sig[s_idx, sig_idx], color=color, linestyle="--")
+            ax.plot(
+                b_values,
+                _naive_z_fixed_sigrel(float(s_true), b_values, float(sigma_rel)),
+                color=color,
+                linestyle=":",
+            )
+            if "median" in mc_statistics:
+                ax.plot(b_values, Z_med_sig[s_idx, sig_idx], color=color, linestyle="None", marker="x")
+
+        _style_medsig_axes(ax, b_values, _medsig_ymax(Z_A_r_sig[s_idx]))
+        _add_combined_legends(
+            ax,
+            labels=[rf"$\sigma_b/b={sigma_rel:g}$" for sigma_rel in rel_sig_vec],
+            colors=colors,
+            n_configs=len(rel_sig_vec),
+            mc_statistics=mc_statistics,
+            asimov_statistics=asimov_statistics,
+        )
+        plt.tight_layout()
+        fig.savefig(out_pdf)
+        plt.close(fig)
+        print(f"Saved combined fixed-sigma plot to: {out_pdf.resolve()}")
+
+
+def _add_combined_legends(
+    ax,
+    labels: list,
+    colors: list,
+    n_configs: int,
+    mc_statistics: list,
+    asimov_statistics: list,
+):
+    stat_handles = []
+    if "r" in asimov_statistics:
+        stat_handles.append(Line2D([0], [0], color="0.15", linestyle="-", label=r"Asimov $q$"))
+    if "rstar" in asimov_statistics:
+        stat_handles.append(Line2D([0], [0], color="0.15", linestyle="--", label=r"Asimov $q^\ast$"))
+    stat_handles.append(Line2D([0], [0], color="0.15", linestyle=":", label=r"$s/\sqrt{b+\sigma_b^2}$"))
+    if "median" in mc_statistics:
+        stat_handles.append(Line2D([0], [0], color="0.15", marker="x", linestyle="None", label=r"MC median"))
+
+    legend_kwargs = {
+        "frameon": False,
+        "fontsize": 11,
+        "borderaxespad": 0.2,
+        "handlelength": 1.8,
+        "handletextpad": 0.7,
+        "labelspacing": 0.45,
+    }
+    stat_legend = ax.legend(
+        handles=stat_handles,
+        loc="upper right",
+        bbox_to_anchor=(0.98, 0.98),
+        **legend_kwargs,
+    )
+    ax.add_artist(stat_legend)
+
+    config_handles = [
+        Line2D([0], [0], color=colors[idx % len(colors)], linestyle="-", label=labels[idx])
+        for idx in range(n_configs)
+    ]
+    ax.legend(
+        handles=config_handles,
+        loc="upper right",
+        bbox_to_anchor=(0.98, 0.66),
+        **legend_kwargs,
+    )
+
+
 def main(cfg_path: str):
+    _configure_plot_style()
+
     cfg = load_yaml(cfg_path)
     cfg["s_vec"] = np.asarray(cfg["s_vec"], dtype=float)
     cfg["tauVec"] = np.asarray(cfg["tauVec"], dtype=float)
@@ -234,6 +430,16 @@ def main(cfg_path: str):
     continuity_correction_rstar = bool(cfg.get("continuity_correction_rstar", True))
     outdir.mkdir(parents=True, exist_ok=True)
     out_pdf = Path(cfg.get("out_summary_pdf", outdir / "onoff_medsig.pdf"))
+    out_combined_tau_template = str(
+        cfg.get("out_combined_tau_template", outdir / "onoff_medsig_combined_tau_s{s}.pdf")
+    )
+    out_combined_sigrel_template = str(
+        cfg.get("out_combined_sigrel_template", outdir / "onoff_medsig_combined_sigrel_s{s}.pdf")
+    )
+    alternate_asimov_statistics = cfg.get("alternate_asimov_statistics")
+    alternate_out_pdf = cfg.get("alternate_out_summary_pdf")
+    alternate_out_combined_tau_template = cfg.get("alternate_out_combined_tau_template")
+    alternate_out_combined_sigrel_template = cfg.get("alternate_out_combined_sigrel_template")
     out_pdf.parent.mkdir(parents=True, exist_ok=True)
 
     (
@@ -280,10 +486,82 @@ def main(cfg_path: str):
         mc_statistics=mc_statistics,
         asimov_statistics=asimov_statistics,
     )
+    make_combined_tau_plots(
+        s_vec=cfg["s_vec"],
+        tau_vec=cfg["tauVec"],
+        b_values=b_values_tau,
+        Z_A_r_tau=Z_A_r_tau,
+        Z_A_rstar_tau=Z_A_rstar_tau,
+        Z_med_tau=Z_med_tau,
+        out_template=out_combined_tau_template,
+        mc_statistics=mc_statistics,
+        asimov_statistics=asimov_statistics,
+    )
+    make_combined_sigrel_plots(
+        s_vec=cfg["s_vec"],
+        rel_sig_vec=cfg["relSigVec"],
+        b_values=b_values_sig,
+        Z_A_r_sig=Z_A_r_sig,
+        Z_A_rstar_sig=Z_A_rstar_sig,
+        Z_med_sig=Z_med_sig,
+        out_template=out_combined_sigrel_template,
+        mc_statistics=mc_statistics,
+        asimov_statistics=asimov_statistics,
+    )
+
+    if alternate_asimov_statistics:
+        alternate_out_pdf = Path(alternate_out_pdf or out_pdf.with_name(f"{out_pdf.stem}_alternate.pdf"))
+        alternate_out_pdf.parent.mkdir(parents=True, exist_ok=True)
+        make_plots_onoff(
+            s_vec=cfg["s_vec"],
+            tau_vec=cfg["tauVec"],
+            rel_sig_vec=cfg["relSigVec"],
+            b_values_tau=b_values_tau,
+            b_values_sig=b_values_sig,
+            Z_A_r_tau=Z_A_r_tau,
+            Z_A_rstar_tau=Z_A_rstar_tau,
+            Z_A_r_sig=Z_A_r_sig,
+            Z_A_rstar_sig=Z_A_rstar_sig,
+            Z_med_tau=Z_med_tau,
+            Z_med_sig=Z_med_sig,
+            Z_mean_tau=Z_mean_tau,
+            Z_mean_sig=Z_mean_sig,
+            out_pdf=alternate_out_pdf,
+            save_individual=False,
+            outdir=outdir,
+            mc_statistics=mc_statistics,
+            asimov_statistics=alternate_asimov_statistics,
+        )
+        if alternate_out_combined_tau_template:
+            make_combined_tau_plots(
+                s_vec=cfg["s_vec"],
+                tau_vec=cfg["tauVec"],
+                b_values=b_values_tau,
+                Z_A_r_tau=Z_A_r_tau,
+                Z_A_rstar_tau=Z_A_rstar_tau,
+                Z_med_tau=Z_med_tau,
+                out_template=str(alternate_out_combined_tau_template),
+                mc_statistics=mc_statistics,
+                asimov_statistics=alternate_asimov_statistics,
+            )
+        if alternate_out_combined_sigrel_template:
+            make_combined_sigrel_plots(
+                s_vec=cfg["s_vec"],
+                rel_sig_vec=cfg["relSigVec"],
+                b_values=b_values_sig,
+                Z_A_r_sig=Z_A_r_sig,
+                Z_A_rstar_sig=Z_A_rstar_sig,
+                Z_med_sig=Z_med_sig,
+                out_template=str(alternate_out_combined_sigrel_template),
+                mc_statistics=mc_statistics,
+                asimov_statistics=alternate_asimov_statistics,
+            )
 
     if save_individual:
         print(f"Saved individual plots under: {outdir.resolve()}")
     print(f"Saved all plots to: {out_pdf.resolve()}")
+    if alternate_asimov_statistics:
+        print(f"Saved alternate plots to: {alternate_out_pdf.resolve()}")
 
 
 if __name__ == "__main__":

@@ -15,6 +15,32 @@ from src.common import load_yaml
 from src.on import pvals_on
 
 
+PLOT_FIGSIZE = (6.5, 6.5)
+
+
+def _configure_plot_style():
+    plt.rcParams.update(
+        {
+            "font.size": 16,
+            "axes.labelsize": 20,
+            "xtick.labelsize": 16,
+            "ytick.labelsize": 16,
+            "legend.fontsize": 14,
+            "lines.markersize": 7,
+        }
+    )
+
+
+def _finish_axes(*axes):
+    for ax in axes:
+        if ax is None:
+            continue
+        ax.tick_params(axis="both", which="major", labelsize=16, width=1.3, length=6)
+        ax.tick_params(axis="both", which="minor", width=1.0, length=3)
+        for spine in ax.spines.values():
+            spine.set_linewidth(1.2)
+
+
 def _fmt(x):
     return f"{x:g}".replace(".", "p")
 
@@ -123,12 +149,12 @@ def make_plot_on(
                 fig, (ax_top, ax_bot) = plt.subplots(
                     2,
                     1,
-                    figsize=(12, 9),
+                    figsize=PLOT_FIGSIZE,
                     sharex=True,
                     gridspec_kw={"height_ratios": [3.5, 1.2]},
                 )
             else:
-                fig, ax_top = plt.subplots(figsize=(12, 6))
+                fig, ax_top = plt.subplots(figsize=PLOT_FIGSIZE)
                 ax_bot = None
 
             ax_top.semilogy(
@@ -137,8 +163,8 @@ def make_plot_on(
                 marker="o",
                 linestyle="None",
                 ms=5,
-                label="1 − Φ(r)",
-                color="tab:blue",
+                label="1 − Φ(q)",
+                color="0.15",
             )
             ax_top.semilogy(
                 n_vals,
@@ -146,8 +172,8 @@ def make_plot_on(
                 marker="^",
                 linestyle="None",
                 ms=5,
-                label="1 − Φ(r*)",
-                color="tab:orange",
+                label="1 − Φ(q*)",
+                color="0.15",
             )
             ax_top.semilogy(
                 n_vals,
@@ -155,15 +181,14 @@ def make_plot_on(
                 marker="x",
                 linestyle="None",
                 ms=4,
-                label="MC",
-                color="tab:green",
+                label="Exact",
+                color="0.15",
             )
             ax_top.set_ylabel("p-value (upper tail)")
-            ax_top.set_xlim(n_min - 0.5, n_max + 0.5)
+            ax_top.set_xlim(n_vals[0], n_vals[-1])
             ax_top.axvline(first_tail_n - 0.5, color="0.55", ls=":", lw=1)
-            ax_top.set_title(rf"$s_0={s0}$,  $b={b}$,  $\mu_0=s_0+b={mu0}$")
             ax_top.grid(True, which="both", alpha=0.25)
-            ax_top.legend()
+            ax_top.legend(frameon=False, loc="upper right")
 
             if include_ratio:
                 ax_bot.axvline(first_tail_n - 0.5, color="0.55", ls=":", lw=1)
@@ -173,8 +198,8 @@ def make_plot_on(
                     marker="o",
                     linestyle="None",
                     ms=4,
-                    label=r"|r − MC| / MC",
-                    color="tab:blue",
+                    label=r"|q − Exact| / Exact",
+                    color="0.15",
                 )
                 ax_bot.semilogy(
                     n_vals,
@@ -182,16 +207,17 @@ def make_plot_on(
                     marker="^",
                     linestyle="None",
                     ms=4,
-                    label=r"|r* − MC| / MC",
-                    color="tab:orange",
+                    label=r"|q* − Exact| / Exact",
+                    color="0.15",
                 )
                 ax_bot.set_xlabel("Observed count n")
                 ax_bot.set_ylabel("rel. abs. diff")
                 ax_bot.grid(True, which="both", alpha=0.25)
-                ax_bot.legend()
+                ax_bot.legend(frameon=False)
             else:
                 ax_top.set_xlabel("Observed count n")
 
+            _finish_axes(ax_top, ax_bot)
             plt.tight_layout()
             if save_individual:
                 fname = out_pdf.parent / f"simple_pval_s{_fmt(s0)}_b{_fmt(b)}.pdf"
@@ -225,23 +251,23 @@ def make_significance_plot_on(results: list, out_pdf: Path, include_ratio: bool)
                 fig, (ax_z, ax_bot) = plt.subplots(
                     2,
                     1,
-                    figsize=(12, 9),
+                    figsize=PLOT_FIGSIZE,
                     sharex=True,
                     gridspec_kw={"height_ratios": [3.5, 1.2]},
                 )
             else:
-                fig, ax_z = plt.subplots(figsize=(12, 6))
+                fig, ax_z = plt.subplots(figsize=PLOT_FIGSIZE)
                 ax_bot = None
 
-            ax_z.plot(n_vals, z_r, marker="o", linestyle="None", ms=5, label=r"$r$", color="tab:blue")
+            ax_z.plot(n_vals, z_r, marker="o", linestyle="None", ms=5, label=r"$q$", color="0.15")
             ax_z.plot(
                 n_vals,
                 z_rstar,
                 marker="^",
                 linestyle="None",
                 ms=5,
-                label=r"$r^\ast$",
-                color="tab:orange",
+                label=r"$q^\ast$",
+                color="0.15",
             )
             ax_z.plot(
                 n_vals,
@@ -249,15 +275,14 @@ def make_significance_plot_on(results: list, out_pdf: Path, include_ratio: bool)
                 marker="x",
                 linestyle="None",
                 ms=4,
-                label="MC",
-                color="tab:green",
+                label="Exact",
+                color="0.15",
             )
-            ax_z.set_ylabel(r"$Z=\Phi^{-1}(1-p)$")
-            ax_z.set_xlim(n_min - 0.5, n_max + 0.5)
+            ax_z.set_ylabel(r"$Z$")
+            ax_z.set_xlim(n_vals[0], n_vals[-1])
             ax_z.axvline(first_tail_n - 0.5, color="0.55", ls=":", lw=1)
-            ax_z.set_title(rf"$s_0={s0}$,  $b={b}$,  $\mu_0=s_0+b={mu0}$")
             ax_z.grid(True, alpha=0.25)
-            ax_z.legend()
+            ax_z.legend(frameon=False, loc="lower right")
 
             if include_ratio:
                 ax_bot.axvline(first_tail_n - 0.5, color="0.55", ls=":", lw=1)
@@ -267,8 +292,8 @@ def make_significance_plot_on(results: list, out_pdf: Path, include_ratio: bool)
                     marker="o",
                     linestyle="None",
                     ms=4,
-                    label=r"$|p_r-p_\mathrm{MC}|/p_\mathrm{MC}$",
-                    color="tab:blue",
+                    label=r"$|p_q-p_\mathrm{Exact}|/p_\mathrm{Exact}$",
+                    color="0.15",
                 )
                 ax_bot.semilogy(
                     n_vals,
@@ -276,22 +301,25 @@ def make_significance_plot_on(results: list, out_pdf: Path, include_ratio: bool)
                     marker="^",
                     linestyle="None",
                     ms=4,
-                    label=r"$|p_{r^\ast}-p_\mathrm{MC}|/p_\mathrm{MC}$",
-                    color="tab:orange",
+                    label=r"$|p_{q^\ast}-p_\mathrm{Exact}|/p_\mathrm{Exact}$",
+                    color="0.15",
                 )
                 ax_bot.set_xlabel("Observed count n")
                 ax_bot.set_ylabel("rel. abs. diff")
                 ax_bot.grid(True, which="both", alpha=0.25)
-                ax_bot.legend()
+                ax_bot.legend(frameon=False)
             else:
                 ax_z.set_xlabel("Observed count n")
 
+            _finish_axes(ax_z, ax_bot)
             plt.tight_layout()
             pdf.savefig(fig)
             plt.close(fig)
 
 
 def main(cfg_path: str):
+    _configure_plot_style()
+
     cfg = load_yaml(cfg_path)
     s0_vec = np.asarray(cfg["s0_vec"], dtype=float)
     b_vec = np.asarray(cfg["b_vec"], dtype=float)
