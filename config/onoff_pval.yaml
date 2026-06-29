@@ -17,7 +17,7 @@ continuity_correction_rstar: False
 drop_zero_m0: True
 trim_to_discovery_tail: True
 significance_plots: True
-improvement_plots: True
+improvement_plots: False
 
 # Extend each n scan until the reference significance reaches this value
 target_Z: 5.0
@@ -25,6 +25,8 @@ max_n: 10000
 
 # OFF-count slices: m = E[M] + k sqrt(E[M]) for these k values
 m_sigma_offsets: [-1, 0, 1]
+# Always show at least this many OFF-count slices; missing slices are padded as m+1, m+2, ...
+min_m0_values: 3
 
 # Exact is preferred for high-Z p-value plots; use "mc" for toy-MC reference.
 reference_method: "exact"

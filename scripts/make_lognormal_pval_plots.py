@@ -20,6 +20,32 @@ from src.lognormal import (
 )
 
 
+PLOT_FIGSIZE = (6.5, 6.5)
+
+
+def _configure_plot_style():
+    plt.rcParams.update(
+        {
+            "font.size": 16,
+            "axes.labelsize": 20,
+            "xtick.labelsize": 16,
+            "ytick.labelsize": 16,
+            "legend.fontsize": 14,
+            "lines.markersize": 7,
+        }
+    )
+
+
+def _finish_axes(*axes):
+    for ax in axes:
+        if ax is None:
+            continue
+        ax.tick_params(axis="both", which="major", labelsize=16, width=1.3, length=6)
+        ax.tick_params(axis="both", which="minor", width=1.0, length=3)
+        for spine in ax.spines.values():
+            spine.set_linewidth(1.2)
+
+
 def _fmt(x):
     return f"{x:g}".replace(".", "p").replace("-", "m")
 
@@ -149,12 +175,12 @@ def make_plots_lognormal(
                 fig, (ax_top, ax_bot) = plt.subplots(
                     2,
                     1,
-                    figsize=(12, 9),
+                    figsize=PLOT_FIGSIZE,
                     sharex=True,
                     gridspec_kw={"height_ratios": [3.5, 1.2]},
                 )
             else:
-                fig, ax_top = plt.subplots(figsize=(12, 6))
+                fig, ax_top = plt.subplots(figsize=PLOT_FIGSIZE)
                 ax_bot = None
 
             ax_top.semilogy(
@@ -163,7 +189,7 @@ def make_plots_lognormal(
                 marker="o",
                 linestyle="None",
                 ms=5,
-                label="1 - Phi(r)",
+                label="1 - Phi(q)",
                 color="tab:blue",
             )
             ax_top.semilogy(
@@ -172,7 +198,7 @@ def make_plots_lognormal(
                 marker="^",
                 linestyle="None",
                 ms=5,
-                label="1 - Phi(r*)",
+                label="1 - Phi(q*)",
                 color="tab:orange",
             )
             ax_top.errorbar(
@@ -189,12 +215,8 @@ def make_plots_lognormal(
             ax_top.axvline(first_tail_n - 0.5, color="0.55", ls=":", lw=1)
             ax_top.set_ylabel("p-value (upper tail)")
             ax_top.set_xlim(n_vals[0] - 0.5, n_vals[-1] + 0.5)
-            ax_top.set_title(
-                rf"$\tilde{{\theta}}={theta_tilde}$,  $s_0={s0}$,  "
-                rf"$b_0={b0}$,  $\sigma={sigma}$,  " + _reference_title(reference_label)
-            )
             ax_top.grid(True, which="both", alpha=0.25)
-            ax_top.legend()
+            ax_top.legend(frameon=False)
 
             if include_ratio:
                 ax_bot.axvline(first_tail_n - 0.5, color="0.55", ls=":", lw=1)
@@ -204,7 +226,7 @@ def make_plots_lognormal(
                     marker="o",
                     linestyle="None",
                     ms=4,
-                    label=r"$|p_r-p_\mathrm{ref}|/p_\mathrm{ref}$",
+                    label=r"$|p_q-p_\mathrm{ref}|/p_\mathrm{ref}$",
                     color="tab:blue",
                 )
                 ax_bot.semilogy(
@@ -213,16 +235,17 @@ def make_plots_lognormal(
                     marker="^",
                     linestyle="None",
                     ms=4,
-                    label=r"$|p_{r^\ast}-p_\mathrm{ref}|/p_\mathrm{ref}$",
+                    label=r"$|p_{q^\ast}-p_\mathrm{ref}|/p_\mathrm{ref}$",
                     color="tab:orange",
                 )
                 ax_bot.set_xlabel(r"$n_0$ (observed counts)")
                 ax_bot.set_ylabel("rel. abs. diff")
                 ax_bot.grid(True, which="both", alpha=0.25)
-                ax_bot.legend()
+                ax_bot.legend(frameon=False)
             else:
                 ax_top.set_xlabel(r"$n_0$ (observed counts)")
 
+            _finish_axes(ax_top, ax_bot)
             plt.tight_layout()
             if save_individual:
                 fname = (
@@ -263,34 +286,30 @@ def make_significance_plots_lognormal(
                 fig, (ax_z, ax_bot) = plt.subplots(
                     2,
                     1,
-                    figsize=(12, 9),
+                    figsize=PLOT_FIGSIZE,
                     sharex=True,
                     gridspec_kw={"height_ratios": [3.5, 1.2]},
                 )
             else:
-                fig, ax_z = plt.subplots(figsize=(12, 6))
+                fig, ax_z = plt.subplots(figsize=PLOT_FIGSIZE)
                 ax_bot = None
 
-            ax_z.plot(n_vals, z_r, marker="o", linestyle="None", ms=5, label=r"$r$", color="tab:blue")
+            ax_z.plot(n_vals, z_r, marker="o", linestyle="None", ms=5, label=r"$q$", color="tab:blue")
             ax_z.plot(
                 n_vals,
                 z_rstar,
                 marker="^",
                 linestyle="None",
                 ms=5,
-                label=r"$r^\ast$",
+                label=r"$q^\ast$",
                 color="tab:orange",
             )
             ax_z.plot(n_vals, z_num, marker="x", linestyle="None", ms=4, label=reference_label, color="tab:green")
             ax_z.axvline(first_tail_n - 0.5, color="0.55", ls=":", lw=1)
-            ax_z.set_ylabel(r"$Z=\Phi^{-1}(1-p)$")
+            ax_z.set_ylabel(r"$Z$")
             ax_z.set_xlim(n_vals[0] - 0.5, n_vals[-1] + 0.5)
-            ax_z.set_title(
-                rf"$\tilde{{\theta}}={theta_tilde}$,  $s_0={s0}$,  "
-                rf"$b_0={b0}$,  $\sigma={sigma}$,  " + _reference_title(reference_label)
-            )
             ax_z.grid(True, alpha=0.25)
-            ax_z.legend()
+            ax_z.legend(frameon=False)
 
             if include_ratio:
                 ax_bot.axvline(first_tail_n - 0.5, color="0.55", ls=":", lw=1)
@@ -300,7 +319,7 @@ def make_significance_plots_lognormal(
                     marker="o",
                     linestyle="None",
                     ms=4,
-                    label=r"$|p_r-p_\mathrm{ref}|/p_\mathrm{ref}$",
+                    label=r"$|p_q-p_\mathrm{ref}|/p_\mathrm{ref}$",
                     color="tab:blue",
                 )
                 ax_bot.semilogy(
@@ -309,30 +328,31 @@ def make_significance_plots_lognormal(
                     marker="^",
                     linestyle="None",
                     ms=4,
-                    label=r"$|p_{r^\ast}-p_\mathrm{ref}|/p_\mathrm{ref}$",
+                    label=r"$|p_{q^\ast}-p_\mathrm{ref}|/p_\mathrm{ref}$",
                     color="tab:orange",
                 )
                 ax_bot.set_xlabel(r"$n_0$ (observed counts)")
                 ax_bot.set_ylabel("rel. abs. diff")
                 ax_bot.grid(True, which="both", alpha=0.25)
-                ax_bot.legend()
+                ax_bot.legend(frameon=False)
             else:
                 ax_z.set_xlabel(r"$n_0$ (observed counts)")
 
+            _finish_axes(ax_z, ax_bot)
             plt.tight_layout()
             pdf.savefig(fig)
             plt.close(fig)
 
 
 def make_improvement_plots_lognormal(results: list, out_pdf: Path, reference_label: str = "Numerical"):
-    """Render separate pages showing where r* is closer to the numerical reference than r."""
+    """Render separate pages showing where q* is closer to the numerical reference than q."""
     grouped = defaultdict(list)
     for res in results:
         grouped[(res["s0"], res["b0"], res["sigma"])].append(res)
 
     with PdfPages(out_pdf) as pdf:
         for (s0, b0, sigma), group in sorted(grouped.items()):
-            fig, ax = plt.subplots(figsize=(10, 6), dpi=150)
+            fig, ax = plt.subplots(figsize=PLOT_FIGSIZE, dpi=150)
 
             for res in sorted(group, key=lambda item: item["theta_tilde"]):
                 n_vals = res["n_vals"]
@@ -352,19 +372,18 @@ def make_improvement_plots_lognormal(results: list, out_pdf: Path, reference_lab
 
             ax.axhline(0.0, color="0.25", lw=1)
             ax.set_xlabel(r"$n_0$ (observed counts)")
-            ax.set_ylabel(rf"$|Z_r - Z_\mathrm{{ref}}| - |Z_{{r^\ast}} - Z_\mathrm{{ref}}|$")
-            ax.set_title(
-                rf"$r^\ast$ improvement,  $s_0={s0}$,  $b_0={b0}$,  $\sigma={sigma}$"
-                f"\npositive values mean $r^\\ast$ is closer to {reference_label}"
-            )
+            ax.set_ylabel(rf"$|Z_q - Z_\mathrm{{ref}}| - |Z_{{q^\ast}} - Z_\mathrm{{ref}}|$")
             ax.grid(True, alpha=0.25)
             ax.legend(frameon=False)
+            _finish_axes(ax)
             plt.tight_layout()
             pdf.savefig(fig)
             plt.close(fig)
 
 
 def main(cfg_path: str):
+    _configure_plot_style()
+
     cfg = load_yaml(cfg_path)
     s0_vec = np.asarray(cfg["s_vec"], dtype=float)
     b0_vec = np.asarray(cfg["b0_vec"], dtype=float)
@@ -425,7 +444,7 @@ def main(cfg_path: str):
     if make_significance_plots:
         print(f"Saved significance plots to: {out_significance_pdf.resolve()}")
     if make_improvement_plots:
-        print(f"Saved r* improvement plots to: {out_improvement_pdf.resolve()}")
+        print(f"Saved q* improvement plots to: {out_improvement_pdf.resolve()}")
 
 
 if __name__ == "__main__":

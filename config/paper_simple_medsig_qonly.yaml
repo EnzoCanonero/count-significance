@@ -7,7 +7,7 @@ seed: 12345
 continuity_correction_r: False
 continuity_correction_rstar: True
 mc_statistics: [median]
-asimov_statistics: [r, rstar]
-out_pdf: "paper/fig5_simple_asimov_qstar_bundle.pdf"
-out_combined_pdf: "paper/fig5_simple_asimov_qstar.pdf"
+asimov_statistics: [r]
+out_pdf: "paper/fig1_simple_asimov_bundle.pdf"
+out_combined_pdf: "paper/fig1_simple_asimov.pdf"
 individual_plots: False
