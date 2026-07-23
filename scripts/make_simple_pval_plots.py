@@ -53,6 +53,24 @@ def _correction_suffix(continuity_corrected: bool) -> str:
     return " (cc)" if continuity_corrected else ""
 
 
+def _set_count_significance_limits(ax, n_vals: np.ndarray, *z_arrays: np.ndarray):
+    n_vals = np.asarray(n_vals, dtype=float)
+    if n_vals.size == 0:
+        return
+
+    x_pad = max(0.5, 0.06 * max(float(n_vals[-1] - n_vals[0]), 1.0))
+    ax.set_xlim(float(n_vals[0]) - x_pad, float(n_vals[-1]) + x_pad)
+
+    z_values = np.concatenate([np.ravel(np.asarray(values, dtype=float)) for values in z_arrays])
+    z_values = z_values[np.isfinite(z_values)]
+    if z_values.size == 0:
+        return
+    z_min = float(np.min(z_values))
+    z_max = float(np.max(z_values))
+    z_span = max(z_max - z_min, 1.0)
+    ax.set_ylim(min(0.0, z_min - 0.04 * z_span), z_max + 0.10 * z_span)
+
+
 def _n_max_for_target_z_on(s0: float, b: float, start_n: int, target_z: float, max_n: int = 10_000) -> int:
     """Increase n until the exact Poisson-tail significance reaches target_z."""
     if target_z <= 0.0:
@@ -73,6 +91,7 @@ def compute_pvalues_on(
     s0: float,
     b: float,
     target_z: float = 5.0,
+    max_observed_count: int = None,
     trim_to_discovery_tail: bool = True,
     continuity_correction_r: bool = False,
     continuity_correction_rstar: bool = True,
@@ -86,8 +105,13 @@ def compute_pvalues_on(
     tail_threshold = mu0
     first_tail_n = int(np.floor(tail_threshold)) + 1
     start_n = max(n_min, first_tail_n - 1) if trim_to_discovery_tail else n_min
-    n_max_start = max(n_min, int(np.ceil(mu0 + 5.0 * np.sqrt(mu0))))
-    n_max = _n_max_for_target_z_on(s0, b, n_max_start, target_z)
+    if max_observed_count is None:
+        n_max_start = max(n_min, int(np.ceil(mu0 + 5.0 * np.sqrt(mu0))))
+        n_max = _n_max_for_target_z_on(s0, b, n_max_start, target_z)
+    else:
+        n_max = int(max_observed_count)
+        if n_max < start_n:
+            raise ValueError(f"max_observed_count={n_max} is below the scan start n={start_n}")
     n_vals = np.arange(start_n, n_max + 1, dtype=int)
 
     out = pvals_on(
@@ -291,7 +315,7 @@ def make_significance_plot_on(
                 color="0.15",
             )
             ax_z.set_ylabel(r"$Z$")
-            ax_z.set_xlim(n_vals[0], n_vals[-1])
+            _set_count_significance_limits(ax_z, n_vals, z_r, z_rstar, z_true)
             ax_z.axvline(first_tail_n - 0.5, color="0.55", ls=":", lw=1)
             ax_z.grid(True, alpha=0.25)
             ax_z.legend(frameon=False, loc="lower right")
@@ -336,6 +360,8 @@ def main(cfg_path: str):
     s0_vec = np.asarray(cfg["s0_vec"], dtype=float)
     b_vec = np.asarray(cfg["b_vec"], dtype=float)
     target_z = float(cfg.get("target_Z", 5.0))
+    max_observed_count = cfg.get("max_observed_count")
+    max_observed_count = None if max_observed_count is None else int(max_observed_count)
     out_pdf = Path(cfg["out_pdf"])
     out_significance_pdf = Path(
         cfg.get("out_significance_pdf", out_pdf.with_name(f"{out_pdf.stem}_with_significance.pdf"))
@@ -358,6 +384,7 @@ def main(cfg_path: str):
                 float(s0),
                 float(b),
                 target_z=target_z,
+                max_observed_count=max_observed_count,
                 trim_to_discovery_tail=trim_to_discovery_tail,
                 continuity_correction_r=continuity_correction_r,
                 continuity_correction_rstar=continuity_correction_rstar,

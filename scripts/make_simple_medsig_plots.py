@@ -53,7 +53,7 @@ def _style_medsig_axes(ax, b_values: np.ndarray, y_max: float):
     ax.set_xlim(float(b_values[0]), float(b_values[-1]))
     ax.set_xlabel(r"$b$")
     ax.set_ylabel(r"$\mathrm{med}[Z_0|1]$")
-    ax.set_ylim(bottom=-0.5, top=y_max)
+    ax.set_ylim(bottom=0.0, top=y_max)
     ax.grid(True, which="both", ls="--", alpha=0.35)
     _finish_axes(ax)
 
@@ -142,7 +142,7 @@ def make_plots_on(
                     b_values,
                     Z_mc_median[idx],
                     linestyle="None",
-                    marker="x",
+                    marker="o",
                     label=fr"MC median $Z$, $s_\mathrm{{true}}={s_true}$",
                 )
             if "mean" in mc_statistics:
@@ -188,7 +188,7 @@ def make_combined_plot_on(
             ax.plot(b_values, Z_A_rstar[idx], color=color, linestyle="--")
         ax.plot(b_values, float(s_true) / np.sqrt(b_values), color=color, linestyle=":")
         if "median" in mc_statistics:
-            ax.plot(b_values, Z_mc_median[idx], color=color, linestyle="None", marker="x")
+            ax.plot(b_values, Z_mc_median[idx], color=color, linestyle="None", marker="o")
 
     _style_medsig_axes(ax, b_values, _medsig_ymax(Z_A_r))
 
@@ -207,7 +207,7 @@ def make_combined_plot_on(
         )
     stat_handles.append(Line2D([0], [0], color="0.15", linestyle=":", label=r"$s/\sqrt{b}$"))
     if "median" in mc_statistics:
-        stat_handles.append(Line2D([0], [0], color="0.15", marker="x", linestyle="None", label=r"MC median"))
+        stat_handles.append(Line2D([0], [0], color="0.15", marker="o", linestyle="None", label=r"MC median"))
 
     legend_kwargs = {
         "frameon": False,

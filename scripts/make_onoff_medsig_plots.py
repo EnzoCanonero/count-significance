@@ -16,6 +16,12 @@ from src.on_off import expected_significance_onoff
 
 
 PLOT_FIGSIZE = (6.5, 6.5)
+PLOT_ADJUST = {
+    "left": 0.20,
+    "right": 0.96,
+    "bottom": 0.16,
+    "top": 0.96,
+}
 
 
 def _configure_plot_style():
@@ -39,6 +45,10 @@ def _finish_axes(ax):
         spine.set_linewidth(1.2)
 
 
+def _finish_figure(fig):
+    fig.subplots_adjust(**PLOT_ADJUST)
+
+
 def _medsig_ymax(*arrays) -> float:
     values = np.concatenate([np.ravel(np.asarray(array, dtype=float)) for array in arrays])
     values = values[np.isfinite(values)]
@@ -52,7 +62,7 @@ def _style_medsig_axes(ax, b_values: np.ndarray, y_max: float):
     ax.set_xlim(float(b_values[0]), float(b_values[-1]))
     ax.set_xlabel(r"$b$")
     ax.set_ylabel(r"$\mathrm{med}[Z_0|1]$")
-    ax.set_ylim(bottom=-0.5, top=y_max)
+    ax.set_ylim(bottom=0.0, top=y_max)
     ax.grid(True, which="both", ls="--", alpha=0.35)
     _finish_axes(ax)
 
@@ -211,7 +221,7 @@ def make_plots_onoff(
                         b_values_tau,
                         Z_med_tau[s_idx, tau_idx],
                         linestyle="None",
-                        marker="x",
+                        marker="o",
                         label=r"MC median $Z$",
                     )
                 if "mean" in mc_statistics:
@@ -224,7 +234,7 @@ def make_plots_onoff(
                     )
                 _style_medsig_axes(ax, b_values_tau, _medsig_ymax(_cap(Z_A_r_tau[s_idx, tau_idx], y_ceiling)))
                 ax.legend(frameon=False, loc="upper right")
-                plt.tight_layout()
+                _finish_figure(fig)
                 if save_individual:
                     fname = outdir / f"onoff_bscan_s{_fmt(s_true)}_tau{_fmt(tau)}.pdf"
                     fig.savefig(fname)
@@ -253,7 +263,7 @@ def make_plots_onoff(
                         b_values_sig,
                         Z_med_sig[s_idx, sig_idx],
                         linestyle="None",
-                        marker="x",
+                        marker="o",
                         label=r"MC median $Z$",
                     )
                 if "mean" in mc_statistics:
@@ -266,7 +276,7 @@ def make_plots_onoff(
                     )
                 _style_medsig_axes(ax, b_values_sig, _medsig_ymax(_cap(Z_A_r_sig[s_idx, sig_idx], y_ceiling)))
                 ax.legend(frameon=False, loc="upper right")
-                plt.tight_layout()
+                _finish_figure(fig)
                 if save_individual:
                     fname = outdir / f"onoff_bscan_s{_fmt(s_true)}_sigrel{_fmt(sigma_rel)}.pdf"
                     fig.savefig(fname)
@@ -302,7 +312,7 @@ def make_combined_tau_plots(
                 ax.plot(b_values, Z_A_rstar_tau[s_idx, tau_idx], color=color, linestyle="--")
             ax.plot(b_values, _naive_z_fixed_tau(float(s_true), b_values, float(tau)), color=color, linestyle=":")
             if "median" in mc_statistics:
-                ax.plot(b_values, Z_med_tau[s_idx, tau_idx], color=color, linestyle="None", marker="x")
+                ax.plot(b_values, Z_med_tau[s_idx, tau_idx], color=color, linestyle="None", marker="o")
 
         _style_medsig_axes(ax, b_values, _medsig_ymax(_cap(Z_A_r_tau[s_idx], y_ceiling)))
         _add_combined_legends(
@@ -313,7 +323,7 @@ def make_combined_tau_plots(
             mc_statistics=mc_statistics,
             asimov_statistics=asimov_statistics,
         )
-        plt.tight_layout()
+        _finish_figure(fig)
         fig.savefig(out_pdf)
         plt.close(fig)
         print(f"Saved combined fixed-tau plot to: {out_pdf.resolve()}")
@@ -352,7 +362,7 @@ def make_combined_sigrel_plots(
                 linestyle=":",
             )
             if "median" in mc_statistics:
-                ax.plot(b_values, Z_med_sig[s_idx, sig_idx], color=color, linestyle="None", marker="x")
+                ax.plot(b_values, Z_med_sig[s_idx, sig_idx], color=color, linestyle="None", marker="o")
 
         _style_medsig_axes(ax, b_values, _medsig_ymax(_cap(Z_A_r_sig[s_idx], y_ceiling)))
         _add_combined_legends(
@@ -363,7 +373,7 @@ def make_combined_sigrel_plots(
             mc_statistics=mc_statistics,
             asimov_statistics=asimov_statistics,
         )
-        plt.tight_layout()
+        _finish_figure(fig)
         fig.savefig(out_pdf)
         plt.close(fig)
         print(f"Saved combined fixed-sigma plot to: {out_pdf.resolve()}")
@@ -384,7 +394,7 @@ def _add_combined_legends(
         stat_handles.append(Line2D([0], [0], color="0.15", linestyle="--", label=r"Asimov $q_0^\ast$"))
     stat_handles.append(Line2D([0], [0], color="0.15", linestyle=":", label=r"$s/\sqrt{b+\sigma_b^2}$"))
     if "median" in mc_statistics:
-        stat_handles.append(Line2D([0], [0], color="0.15", marker="x", linestyle="None", label=r"MC median"))
+        stat_handles.append(Line2D([0], [0], color="0.15", marker="o", linestyle="None", label=r"MC median"))
 
     legend_kwargs = {
         "frameon": False,

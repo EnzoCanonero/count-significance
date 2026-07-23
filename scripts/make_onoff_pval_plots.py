@@ -81,7 +81,7 @@ def _add_stat_and_m_legends(
     ax.add_artist(stat_legend)
 
     m_handles = [
-        Line2D([0], [0], color=colors[idx % len(colors)], lw=2.2, label=rf"$m_0={m0:g}$")
+        Line2D([0], [0], color=colors[idx % len(colors)], lw=2.2, label=rf"$m={m0:g}$")
         for idx, m0 in enumerate(m_values)
     ]
     ax.legend(
@@ -94,6 +94,21 @@ def _add_stat_and_m_legends(
 
 def _fmt(x):
     return f"{x:g}".replace(".", "p")
+
+
+def _set_count_significance_limits(ax, n_lo: float, n_hi: float, *z_arrays: np.ndarray):
+    x_span = max(float(n_hi - n_lo), 1.0)
+    x_pad = max(0.5, 0.06 * x_span)
+    ax.set_xlim(float(n_lo) - x_pad, float(n_hi) + x_pad)
+
+    z_values = np.concatenate([np.ravel(np.asarray(values, dtype=float)) for values in z_arrays])
+    z_values = z_values[np.isfinite(z_values)]
+    if z_values.size == 0:
+        return
+    z_min = float(np.min(z_values))
+    z_max = float(np.max(z_values))
+    z_span = max(z_max - z_min, 1.0)
+    ax.set_ylim(min(0.0, z_min - 0.04 * z_span), z_max + 0.10 * z_span)
 
 
 def _candidate_off_counts(mu_b: float, sigma_offsets=(-1.0, 0.0, 1.0)) -> np.ndarray:
@@ -252,6 +267,7 @@ def compute_pvalues_onoff(
     tau: float,
     sigrel: float,
     target_z: float = 5.0,
+    max_observed_count: int = None,
     m_sigma_offsets=(-1.0, 0.0, 1.0),
     drop_zero_m0: bool = True,
     trim_to_discovery_tail: bool = True,
@@ -295,7 +311,11 @@ def compute_pvalues_onoff(
         n_vals, p_r, p_rstar, p_mc, p_mc_se = [], [], [], [], []
         n0 = int(start_n)
 
-        while n0 <= int(max_n):
+        stop_n = int(max_observed_count) if max_observed_count is not None else int(max_n)
+        if stop_n < n0:
+            raise ValueError(f"max_observed_count={stop_n} is below the scan start n={n0}")
+
+        while n0 <= stop_n:
             out = _pvals_onoff_reference(
                 s0,
                 b,
@@ -315,12 +335,13 @@ def compute_pvalues_onoff(
             p_mc_se.append(out["p_mc_se"])
 
             z_ref = float(_z_from_p(out["p_mc"]))
-            if n0 >= n_max_start and z_ref >= target_z:
+            if max_observed_count is None and n0 >= n_max_start and z_ref >= target_z:
                 break
 
             n0 += 1
         else:
-            raise RuntimeError(f"Failed to reach Z={target_z:g} by n={max_n}")
+            if max_observed_count is None:
+                raise RuntimeError(f"Failed to reach Z={target_z:g} by n={max_n}")
 
         n_vals = np.asarray(n_vals, dtype=int)
         p_r = np.asarray(p_r, dtype=float)
@@ -462,6 +483,7 @@ def make_significance_plots_onoff(
                 ax_bot = None
 
             n_lo, n_hi = np.inf, -np.inf
+            z_values_for_limits = []
             for idx, res in enumerate(group):
                 color = colors[idx % len(colors)]
                 n_vals = res["n_vals"]
@@ -471,6 +493,7 @@ def make_significance_plots_onoff(
                 z_r = _z_from_p(res["p_r"])
                 z_rstar = _z_from_p(res["p_rstar"])
                 z_mc = _z_from_p(res["p_mc"])
+                z_values_for_limits.extend([z_r, z_rstar, z_mc])
 
                 ax_z.plot(n_vals, z_r, marker="o", linestyle="None", ms=5, color=color)
                 ax_z.plot(n_vals, z_rstar, marker="^", linestyle="None", ms=5, color=color)
@@ -481,7 +504,7 @@ def make_significance_plots_onoff(
                     ax_bot.semilogy(n_vals, res["rel_rstar"], marker="^", linestyle="None", ms=4, color=color)
 
             ax_z.set_ylabel(r"$Z$")
-            ax_z.set_xlim(n_lo, n_hi)
+            _set_count_significance_limits(ax_z, n_lo, n_hi, *z_values_for_limits)
             ax_z.grid(True, alpha=0.25)
             _add_stat_and_m_legends(
                 ax_z,
@@ -494,12 +517,12 @@ def make_significance_plots_onoff(
             )
 
             if include_ratio:
-                ax_bot.set_xlabel(r"$n_0$ (observed primary count)")
+                ax_bot.set_xlabel("Observed count n")
                 ax_bot.set_ylabel("rel. abs. diff")
-                ax_bot.set_xlim(n_lo, n_hi)
+                ax_bot.set_xlim(ax_z.get_xlim())
                 ax_bot.grid(True, which="both", alpha=0.25)
             else:
-                ax_z.set_xlabel(r"$n_0$ (observed primary count)")
+                ax_z.set_xlabel("Observed count n")
 
             _finish_axes(ax_z, ax_bot)
             plt.tight_layout()
@@ -553,6 +576,8 @@ def main(cfg_path: str):
     tau_vec = np.asarray(cfg["tau_vec"], dtype=float)
     sigrel = float(cfg.get("mc_sigrel_Z", cfg.get("sigrel", 0.001)))
     target_z = float(cfg.get("target_Z", 5.0))
+    max_observed_count = cfg.get("max_observed_count")
+    max_observed_count = None if max_observed_count is None else int(max_observed_count)
     m_sigma_offsets = tuple(float(x) for x in cfg.get("m_sigma_offsets", [-1.0, 0.0, 1.0]))
     reference_method = str(cfg.get("reference_method", "exact")).lower()
     reference_tail_mass = float(cfg.get("reference_tail_mass", 1e-12))
@@ -589,6 +614,7 @@ def main(cfg_path: str):
                 float(tau),
                 sigrel,
                 target_z=target_z,
+                max_observed_count=max_observed_count,
                 m_sigma_offsets=m_sigma_offsets,
                 drop_zero_m0=drop_zero_m0,
                 trim_to_discovery_tail=trim_to_discovery_tail,
