@@ -38,4 +38,7 @@ asimov_statistics: [r, rstar]
 # Output folder for per-job JSONs and plots
 outdir: "output"
 out_summary_pdf: "onoff_medsig.pdf"
+# Combined per-signal panels (one PDF per s_true), {s} is replaced by the signal value
+out_combined_tau_template: "output/onoff_medsig_combined_tau_s{s}.pdf"
+out_combined_sigrel_template: "output/onoff_medsig_combined_sigrel_s{s}.pdf"
 individual_plots: False

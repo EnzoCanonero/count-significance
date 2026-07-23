@@ -1,0 +1,29 @@
+# Per-signal job config: s_true = 10  (max Asimov Z ~ 8.25 over the grid)
+# max_toys=1e7 -> raw toy precision 1e-7. The display ceiling (5 sigma) is set
+# at merge time via Z_ceiling in config_merge.yaml: it caps the MC markers and
+# the y-axis top; the continuous approximations (q/q*, naive) run off-margin.
+s_vec: [10.0]
+tauVec: [0.5, 2.0]
+relSigVec: [0.25, 1.0]
+
+b_min_tau: 0.1
+b_max_tau: 100.0
+n_bpts_tau: 50
+b_min_sig: 0.1
+b_max_sig: 100.0
+n_bpts_sig: 50
+
+sigrel_Z: 0.02
+min_toys: 1000
+max_toys: 10000000     # ceiling isf(1e-7) ~ 5.20 sigma; ~128 s / outer exp (measured)
+
+continuity_correction_r: False
+continuity_correction_rstar: False
+
+# n_outer total = outer_per_job * (queue in pval_s10.sub) = 5 * 400 = 2000
+# ~5 * ~213 s ~ 18 min / job (n_bpts=50)
+outer_per_job: 5
+outer_seed: 30000
+inner_seed: 130000
+
+outdir: "output_s10"

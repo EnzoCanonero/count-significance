@@ -1,0 +1,18 @@
+# s_true = 2 : cheap (max_toys=1e4). n_outer = 100 * 20 = 2000
+universe                = vanilla
+executable              = run_pval.sh
+arguments               = config_s2.yaml $(Process)
+
+output     = logs/pval_s2_$(Process).out
+error      = logs/pval_s2_$(Process).err
+log        = logs/pval_s2_$(Process).log
+
+should_transfer_files   = YES
+when_to_transfer_output = ON_EXIT
+transfer_executable     = YES
+transfer_input_files    = pval.py, run_pval.sh, config_s2.yaml
+
+request_cpus            = 1
+request_memory          = 2048
+
+queue 20
