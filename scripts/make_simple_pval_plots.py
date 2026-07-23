@@ -25,7 +25,7 @@ def _configure_plot_style():
             "axes.labelsize": 20,
             "xtick.labelsize": 16,
             "ytick.labelsize": 16,
-            "legend.fontsize": 14,
+            "legend.fontsize": 16,
             "lines.markersize": 7,
         }
     )
@@ -47,6 +47,10 @@ def _fmt(x):
 
 def _z_from_p(p):
     return norm.isf(np.clip(np.asarray(p, dtype=float), 1e-300, 1.0 - 1e-16))
+
+
+def _correction_suffix(continuity_corrected: bool) -> str:
+    return " (cc)" if continuity_corrected else ""
 
 
 def _n_max_for_target_z_on(s0: float, b: float, start_n: int, target_z: float, max_n: int = 10_000) -> int:
@@ -128,8 +132,10 @@ def make_plot_on(
     out_pdf: Path,
     save_individual: bool,
     include_ratio: bool,
+    continuity_correction_rstar: bool,
 ):
     """Render the p-value and relative-diff panels for all (s0, b) configurations."""
+    rstar_suffix = _correction_suffix(continuity_correction_rstar)
     with PdfPages(out_pdf) as pdf:
         for res in results:
             s0 = res["s0"]
@@ -163,7 +169,7 @@ def make_plot_on(
                 marker="o",
                 linestyle="None",
                 ms=5,
-                label="1 − Φ(q)",
+                label=r"$1-\Phi(q_0)$",
                 color="0.15",
             )
             ax_top.semilogy(
@@ -172,7 +178,7 @@ def make_plot_on(
                 marker="^",
                 linestyle="None",
                 ms=5,
-                label="1 − Φ(q*)",
+                label=rf"$1-\Phi(q_0^\ast)${rstar_suffix}",
                 color="0.15",
             )
             ax_top.semilogy(
@@ -198,7 +204,7 @@ def make_plot_on(
                     marker="o",
                     linestyle="None",
                     ms=4,
-                    label=r"|q − Exact| / Exact",
+                    label=r"$|p_{q_0}-p_\mathrm{Exact}|/p_\mathrm{Exact}$",
                     color="0.15",
                 )
                 ax_bot.semilogy(
@@ -207,7 +213,7 @@ def make_plot_on(
                     marker="^",
                     linestyle="None",
                     ms=4,
-                    label=r"|q* − Exact| / Exact",
+                    label=rf"$|p_{{q_0^\ast}}-p_\mathrm{{Exact}}|/p_\mathrm{{Exact}}${rstar_suffix}",
                     color="0.15",
                 )
                 ax_bot.set_xlabel("Observed count n")
@@ -226,8 +232,14 @@ def make_plot_on(
             plt.close(fig)
 
 
-def make_significance_plot_on(results: list, out_pdf: Path, include_ratio: bool):
+def make_significance_plot_on(
+    results: list,
+    out_pdf: Path,
+    include_ratio: bool,
+    continuity_correction_rstar: bool,
+):
     """Render significance panels, optionally with relative-difference panels below."""
+    rstar_suffix = _correction_suffix(continuity_correction_rstar)
     with PdfPages(out_pdf) as pdf:
         for res in results:
             s0 = res["s0"]
@@ -259,14 +271,14 @@ def make_significance_plot_on(results: list, out_pdf: Path, include_ratio: bool)
                 fig, ax_z = plt.subplots(figsize=PLOT_FIGSIZE)
                 ax_bot = None
 
-            ax_z.plot(n_vals, z_r, marker="o", linestyle="None", ms=5, label=r"$q$", color="0.15")
+            ax_z.plot(n_vals, z_r, marker="o", linestyle="None", ms=5, label=r"$q_0$", color="0.15")
             ax_z.plot(
                 n_vals,
                 z_rstar,
                 marker="^",
                 linestyle="None",
                 ms=5,
-                label=r"$q^\ast$",
+                label=rf"$q_0^\ast${rstar_suffix}",
                 color="0.15",
             )
             ax_z.plot(
@@ -292,7 +304,7 @@ def make_significance_plot_on(results: list, out_pdf: Path, include_ratio: bool)
                     marker="o",
                     linestyle="None",
                     ms=4,
-                    label=r"$|p_q-p_\mathrm{Exact}|/p_\mathrm{Exact}$",
+                    label=r"$|p_{q_0}-p_\mathrm{Exact}|/p_\mathrm{Exact}$",
                     color="0.15",
                 )
                 ax_bot.semilogy(
@@ -301,7 +313,7 @@ def make_significance_plot_on(results: list, out_pdf: Path, include_ratio: bool)
                     marker="^",
                     linestyle="None",
                     ms=4,
-                    label=r"$|p_{q^\ast}-p_\mathrm{Exact}|/p_\mathrm{Exact}$",
+                    label=rf"$|p_{{q_0^\ast}}-p_\mathrm{{Exact}}|/p_\mathrm{{Exact}}${rstar_suffix}",
                     color="0.15",
                 )
                 ax_bot.set_xlabel("Observed count n")
@@ -351,9 +363,20 @@ def main(cfg_path: str):
                 continuity_correction_rstar=continuity_correction_rstar,
             )
         )
-    make_plot_on(all_results, out_pdf, save_individual, include_ratio)
+    make_plot_on(
+        all_results,
+        out_pdf,
+        save_individual,
+        include_ratio,
+        continuity_correction_rstar=continuity_correction_rstar,
+    )
     if make_significance_plots:
-        make_significance_plot_on(all_results, out_significance_pdf, include_ratio)
+        make_significance_plot_on(
+            all_results,
+            out_significance_pdf,
+            include_ratio,
+            continuity_correction_rstar=continuity_correction_rstar,
+        )
 
     print(f"Saved all plots to: {out_pdf.resolve()}")
     if make_significance_plots:
@@ -365,7 +388,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config",
         default="config/simple_pval.yaml",
-        help="Path to YAML config for simple p-value plots",
+        help="Path to YAML config for known-background p-value plots",
     )
     args = parser.parse_args()
     main(args.config)

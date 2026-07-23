@@ -1,5 +1,5 @@
 # Signal strengths to scan (true signal)
-s_vec: [1.0, 2.0, 5.0, 10.0]
+s_vec: [2.0, 5.0, 10.0]
 
 # Fixed tau values and relative sigma values (sigma_b / b)
 tauVec: [0.5, 2.0]
@@ -21,7 +21,7 @@ min_toys: 500
 max_toys: 100000
 
 # Continuity correction switches for asymptotic approximations
-# Disabled for on/off by default: raw r* performs better against the reference.
+# Disabled for the uncertain-background case by default: raw r* performs better against the reference.
 continuity_correction_r: False
 continuity_correction_rstar: False
 

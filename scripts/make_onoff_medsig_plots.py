@@ -25,7 +25,7 @@ def _configure_plot_style():
             "axes.labelsize": 20,
             "xtick.labelsize": 16,
             "ytick.labelsize": 16,
-            "legend.fontsize": 14,
+            "legend.fontsize": 16,
             "lines.linewidth": 2.2,
             "lines.markersize": 7,
         }
@@ -67,11 +67,16 @@ def _naive_z_fixed_sigrel(s_true: float, b_values: np.ndarray, sigma_rel: float)
     return float(s_true) / np.sqrt(b_values + sigma_b2)
 
 
+def _cap(arr, y_ceiling):
+    """Cap an array at y_ceiling (no-op when y_ceiling is None)."""
+    return np.minimum(arr, y_ceiling) if y_ceiling is not None else arr
+
+
 def _format_output_path(template: str, s_true: float) -> Path:
     return Path(str(template).format(s=_fmt(s_true), s_value=f"{float(s_true):g}"))
 
 
-# Call graph (on/off medsig)
+# Call graph (uncertain-background medsig)
 # - main: load config, prepare b grids, then run experiments and plot
 #   - run_experiments_onoff: compute Asimov + MC-median Z grids (vectorised expected_significance_onoff)
 #   - make_plots_onoff: save combined/individual PDFs (per-τ and per-σ_rel panels)
@@ -96,7 +101,7 @@ def run_experiments_onoff(
     continuity_correction_rstar: bool = True,
 ):
     """
-    Compute Asimov and MC-median Z grids for the on/off case via expected_significance_onoff.
+    Compute Asimov and MC-median Z grids for the uncertain-background case via expected_significance_onoff.
 
     Returns fixed-τ arrays shaped (len(s_vec), len(tau_vec), len(b_values_tau))
     and fixed-σ_rel arrays shaped (len(s_vec), len(rel_sig_vec), len(b_values_sig)).
@@ -172,22 +177,28 @@ def make_plots_onoff(
     outdir: Path,
     mc_statistics: list,
     asimov_statistics: list,
+    y_ceiling: float = None,
 ):
     """
-    Save combined PDF (and optional per-plot PDFs) for the on/off medsig scans.
+    Save combined PDF (and optional per-plot PDFs) for the uncertain-background medsig scans.
+
+    If y_ceiling is set, only the y-axis top is capped at it (computed from the
+    capped Asimov q0). The continuous approximations (Asimov q0/q0* and the naive
+    curve) are still drawn at their true values, so they run off the top margin
+    above y_ceiling. MC markers are expected to be capped by the caller.
     """
     with PdfPages(out_pdf) as pdf:
         for s_idx, s_true in enumerate(s_vec):
             for tau_idx, tau in enumerate(tau_vec):
                 fig, ax = plt.subplots(figsize=PLOT_FIGSIZE, dpi=150)
                 if "r" in asimov_statistics:
-                    ax.plot(b_values_tau, Z_A_r_tau[s_idx, tau_idx], label=r"Asimov $q$ (on/off)")
+                    ax.plot(b_values_tau, Z_A_r_tau[s_idx, tau_idx], label=r"Asimov $q_0$")
                 if "rstar" in asimov_statistics:
                     ax.plot(
                         b_values_tau,
                         Z_A_rstar_tau[s_idx, tau_idx],
                         "--",
-                        label=r"Asimov $q^\ast$ (on/off)",
+                        label=r"Asimov $q_0^\ast$",
                     )
                 ax.plot(
                     b_values_tau,
@@ -211,7 +222,7 @@ def make_plots_onoff(
                         marker="+",
                         label=r"MC mean $Z$",
                     )
-                _style_medsig_axes(ax, b_values_tau, _medsig_ymax(Z_A_r_tau[s_idx, tau_idx]))
+                _style_medsig_axes(ax, b_values_tau, _medsig_ymax(_cap(Z_A_r_tau[s_idx, tau_idx], y_ceiling)))
                 ax.legend(frameon=False, loc="upper right")
                 plt.tight_layout()
                 if save_individual:
@@ -223,13 +234,13 @@ def make_plots_onoff(
             for sig_idx, sigma_rel in enumerate(rel_sig_vec):
                 fig, ax = plt.subplots(figsize=PLOT_FIGSIZE, dpi=150)
                 if "r" in asimov_statistics:
-                    ax.plot(b_values_sig, Z_A_r_sig[s_idx, sig_idx], label=r"Asimov $q$ (on/off)")
+                    ax.plot(b_values_sig, Z_A_r_sig[s_idx, sig_idx], label=r"Asimov $q_0$")
                 if "rstar" in asimov_statistics:
                     ax.plot(
                         b_values_sig,
                         Z_A_rstar_sig[s_idx, sig_idx],
                         "--",
-                        label=r"Asimov $q^\ast$ (on/off)",
+                        label=r"Asimov $q_0^\ast$",
                     )
                 ax.plot(
                     b_values_sig,
@@ -253,7 +264,7 @@ def make_plots_onoff(
                         marker="+",
                         label=r"MC mean $Z$",
                     )
-                _style_medsig_axes(ax, b_values_sig, _medsig_ymax(Z_A_r_sig[s_idx, sig_idx]))
+                _style_medsig_axes(ax, b_values_sig, _medsig_ymax(_cap(Z_A_r_sig[s_idx, sig_idx], y_ceiling)))
                 ax.legend(frameon=False, loc="upper right")
                 plt.tight_layout()
                 if save_individual:
@@ -273,6 +284,7 @@ def make_combined_tau_plots(
     out_template: str,
     mc_statistics: list,
     asimov_statistics: list,
+    y_ceiling: float = None,
 ):
     """Save one fixed-tau combined panel per signal strength."""
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
@@ -292,7 +304,7 @@ def make_combined_tau_plots(
             if "median" in mc_statistics:
                 ax.plot(b_values, Z_med_tau[s_idx, tau_idx], color=color, linestyle="None", marker="x")
 
-        _style_medsig_axes(ax, b_values, _medsig_ymax(Z_A_r_tau[s_idx]))
+        _style_medsig_axes(ax, b_values, _medsig_ymax(_cap(Z_A_r_tau[s_idx], y_ceiling)))
         _add_combined_legends(
             ax,
             labels=[rf"$\tau={tau:g}$" for tau in tau_vec],
@@ -317,6 +329,7 @@ def make_combined_sigrel_plots(
     out_template: str,
     mc_statistics: list,
     asimov_statistics: list,
+    y_ceiling: float = None,
 ):
     """Save one fixed-relative-uncertainty combined panel per signal strength."""
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
@@ -341,7 +354,7 @@ def make_combined_sigrel_plots(
             if "median" in mc_statistics:
                 ax.plot(b_values, Z_med_sig[s_idx, sig_idx], color=color, linestyle="None", marker="x")
 
-        _style_medsig_axes(ax, b_values, _medsig_ymax(Z_A_r_sig[s_idx]))
+        _style_medsig_axes(ax, b_values, _medsig_ymax(_cap(Z_A_r_sig[s_idx], y_ceiling)))
         _add_combined_legends(
             ax,
             labels=[rf"$\sigma_b/b={sigma_rel:g}$" for sigma_rel in rel_sig_vec],
@@ -366,16 +379,16 @@ def _add_combined_legends(
 ):
     stat_handles = []
     if "r" in asimov_statistics:
-        stat_handles.append(Line2D([0], [0], color="0.15", linestyle="-", label=r"Asimov $q$"))
+        stat_handles.append(Line2D([0], [0], color="0.15", linestyle="-", label=r"Asimov $q_0$"))
     if "rstar" in asimov_statistics:
-        stat_handles.append(Line2D([0], [0], color="0.15", linestyle="--", label=r"Asimov $q^\ast$"))
+        stat_handles.append(Line2D([0], [0], color="0.15", linestyle="--", label=r"Asimov $q_0^\ast$"))
     stat_handles.append(Line2D([0], [0], color="0.15", linestyle=":", label=r"$s/\sqrt{b+\sigma_b^2}$"))
     if "median" in mc_statistics:
         stat_handles.append(Line2D([0], [0], color="0.15", marker="x", linestyle="None", label=r"MC median"))
 
     legend_kwargs = {
         "frameon": False,
-        "fontsize": 11,
+        "fontsize": 13,
         "borderaxespad": 0.2,
         "handlelength": 1.8,
         "handletextpad": 0.7,
@@ -569,7 +582,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config",
         default="config/onoff_medsig.yaml",
-        help="Path to YAML config for on/off medsig plots",
+        help="Path to YAML config for uncertain-background medsig plots",
     )
     args = parser.parse_args()
     main(args.config)

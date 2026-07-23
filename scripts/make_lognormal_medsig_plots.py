@@ -127,13 +127,13 @@ def make_plots_lognormal_medsig(
                 fig, ax = plt.subplots(figsize=PLOT_FIGSIZE, dpi=150)
 
                 if "r" in asimov_statistics:
-                    ax.plot(b0_values, Z_A_r[s_idx, sig_idx], label=r"Asimov $q$")
+                    ax.plot(b0_values, Z_A_r[s_idx, sig_idx], label=r"Asimov $q_0$")
                 if "rstar" in asimov_statistics:
                     ax.plot(
                         b0_values,
                         Z_A_rstar[s_idx, sig_idx],
                         "--",
-                        label=r"Asimov $q^\ast$",
+                        label=r"Asimov $q_0^\ast$",
                     )
                 if "median" in mc_statistics:
                     ax.plot(

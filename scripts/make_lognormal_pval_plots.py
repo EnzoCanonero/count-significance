@@ -189,7 +189,7 @@ def make_plots_lognormal(
                 marker="o",
                 linestyle="None",
                 ms=5,
-                label="1 - Phi(q)",
+                label=r"$1-\Phi(q_0)$",
                 color="tab:blue",
             )
             ax_top.semilogy(
@@ -198,7 +198,7 @@ def make_plots_lognormal(
                 marker="^",
                 linestyle="None",
                 ms=5,
-                label="1 - Phi(q*)",
+                label=r"$1-\Phi(q_0^\ast)$",
                 color="tab:orange",
             )
             ax_top.errorbar(
@@ -226,7 +226,7 @@ def make_plots_lognormal(
                     marker="o",
                     linestyle="None",
                     ms=4,
-                    label=r"$|p_q-p_\mathrm{ref}|/p_\mathrm{ref}$",
+                    label=r"$|p_{q_0}-p_\mathrm{ref}|/p_\mathrm{ref}$",
                     color="tab:blue",
                 )
                 ax_bot.semilogy(
@@ -235,7 +235,7 @@ def make_plots_lognormal(
                     marker="^",
                     linestyle="None",
                     ms=4,
-                    label=r"$|p_{q^\ast}-p_\mathrm{ref}|/p_\mathrm{ref}$",
+                    label=r"$|p_{q_0^\ast}-p_\mathrm{ref}|/p_\mathrm{ref}$",
                     color="tab:orange",
                 )
                 ax_bot.set_xlabel(r"$n_0$ (observed counts)")
@@ -294,14 +294,14 @@ def make_significance_plots_lognormal(
                 fig, ax_z = plt.subplots(figsize=PLOT_FIGSIZE)
                 ax_bot = None
 
-            ax_z.plot(n_vals, z_r, marker="o", linestyle="None", ms=5, label=r"$q$", color="tab:blue")
+            ax_z.plot(n_vals, z_r, marker="o", linestyle="None", ms=5, label=r"$q_0$", color="tab:blue")
             ax_z.plot(
                 n_vals,
                 z_rstar,
                 marker="^",
                 linestyle="None",
                 ms=5,
-                label=r"$q^\ast$",
+                label=r"$q_0^\ast$",
                 color="tab:orange",
             )
             ax_z.plot(n_vals, z_num, marker="x", linestyle="None", ms=4, label=reference_label, color="tab:green")
@@ -319,7 +319,7 @@ def make_significance_plots_lognormal(
                     marker="o",
                     linestyle="None",
                     ms=4,
-                    label=r"$|p_q-p_\mathrm{ref}|/p_\mathrm{ref}$",
+                    label=r"$|p_{q_0}-p_\mathrm{ref}|/p_\mathrm{ref}$",
                     color="tab:blue",
                 )
                 ax_bot.semilogy(
@@ -328,7 +328,7 @@ def make_significance_plots_lognormal(
                     marker="^",
                     linestyle="None",
                     ms=4,
-                    label=r"$|p_{q^\ast}-p_\mathrm{ref}|/p_\mathrm{ref}$",
+                    label=r"$|p_{q_0^\ast}-p_\mathrm{ref}|/p_\mathrm{ref}$",
                     color="tab:orange",
                 )
                 ax_bot.set_xlabel(r"$n_0$ (observed counts)")
@@ -345,7 +345,7 @@ def make_significance_plots_lognormal(
 
 
 def make_improvement_plots_lognormal(results: list, out_pdf: Path, reference_label: str = "Numerical"):
-    """Render separate pages showing where q* is closer to the numerical reference than q."""
+    """Render separate pages showing where q0* is closer to the numerical reference than q0."""
     grouped = defaultdict(list)
     for res in results:
         grouped[(res["s0"], res["b0"], res["sigma"])].append(res)
@@ -372,7 +372,7 @@ def make_improvement_plots_lognormal(results: list, out_pdf: Path, reference_lab
 
             ax.axhline(0.0, color="0.25", lw=1)
             ax.set_xlabel(r"$n_0$ (observed counts)")
-            ax.set_ylabel(rf"$|Z_q - Z_\mathrm{{ref}}| - |Z_{{q^\ast}} - Z_\mathrm{{ref}}|$")
+            ax.set_ylabel(rf"$|Z_{{q_0}} - Z_\mathrm{{ref}}| - |Z_{{q_0^\ast}} - Z_\mathrm{{ref}}|$")
             ax.grid(True, alpha=0.25)
             ax.legend(frameon=False)
             _finish_axes(ax)
@@ -444,7 +444,7 @@ def main(cfg_path: str):
     if make_significance_plots:
         print(f"Saved significance plots to: {out_significance_pdf.resolve()}")
     if make_improvement_plots:
-        print(f"Saved q* improvement plots to: {out_improvement_pdf.resolve()}")
+        print(f"Saved q0* improvement plots to: {out_improvement_pdf.resolve()}")
 
 
 if __name__ == "__main__":

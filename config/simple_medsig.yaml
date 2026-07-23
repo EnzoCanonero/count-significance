@@ -6,7 +6,7 @@ b_min: 0.1
 b_max: 100.0
 n_bpts: 100
 
-# MC settings for median expected Z (simple counting)
+# MC settings for median expected Z (known background)
 n_outer: 10000          # outer toys to build Z distribution
 seed: 12345           # RNG seed for reproducibility
 
