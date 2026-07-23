@@ -1,6 +1,6 @@
 s0_vec: [0.0]
 b_vec: [1.0]
-target_Z: 5.0
+max_observed_count: 5
 continuity_correction_r: False
 continuity_correction_rstar: True
 out_pdf: "paper/fig3_simple_pval_s0_b1.pdf"

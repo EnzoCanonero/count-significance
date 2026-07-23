@@ -78,7 +78,7 @@ def make_asimov_plots_lognormal(
             ax.set_xscale("log")
             ax.set_xlabel(r"$b_0$")
             ax.set_ylabel(r"Asimov discovery $Z$")
-            ax.set_ylim(bottom=-0.2)
+            ax.set_ylim(bottom=0.0)
             ax.grid(True, which="both", ls="--", alpha=0.35)
             ax.legend(fontsize=9, frameon=False)
             ax.set_title(rf"log-normal constraint, $s_\mathrm{{true}}={s_true}$")

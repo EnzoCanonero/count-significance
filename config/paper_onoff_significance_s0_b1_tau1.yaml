@@ -8,7 +8,7 @@ drop_zero_m0: True
 trim_to_discovery_tail: True
 significance_plots: True
 improvement_plots: False
-target_Z: 5.0
+max_observed_count: 10
 max_n: 10000
 m_sigma_offsets: [-1, 0, 1]
 min_m0_values: 3
