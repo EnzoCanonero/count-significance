@@ -26,7 +26,7 @@ def _configure_plot_style():
             "axes.labelsize": 20,
             "xtick.labelsize": 16,
             "ytick.labelsize": 16,
-            "legend.fontsize": 14,
+            "legend.fontsize": 16,
             "lines.linewidth": 2.2,
             "lines.markersize": 7,
         }
@@ -58,7 +58,7 @@ def _style_medsig_axes(ax, b_values: np.ndarray, y_max: float):
     _finish_axes(ax)
 
 
-# Call graph (simple medsig)
+# Call graph (known-background medsig)
 # - main: load config, build b grid, run experiments, then plot
 #   - run_experiments_on: compute Asimov + MC-median Z grids (vectorised expected_significance_on)
 #   - make_plots_on: save combined/individual PDFs
@@ -67,6 +67,10 @@ def _style_medsig_axes(ax, b_values: np.ndarray, y_max: float):
 
 def _fmt(x):
     return f"{x:g}".replace(".", "p")
+
+
+def _correction_suffix(continuity_corrected: bool) -> str:
+    return " (cc)" if continuity_corrected else ""
 
 
 def run_experiments_on(
@@ -78,7 +82,7 @@ def run_experiments_on(
     continuity_correction_rstar: bool = True,
 ):
     """
-    Compute Asimov and MC-median Z grids for the simple-counting case via expected_significance_on.
+    Compute Asimov and MC-median Z grids for the known-background case via expected_significance_on.
 
     Returns (Z_A_r, Z_A_rstar, Z_mc_median) shaped (len(s_vec), len(b_values)).
     """
@@ -111,19 +115,21 @@ def make_plots_on(
     save_individual: bool,
     mc_statistics: list,
     asimov_statistics: list,
+    continuity_correction_rstar: bool,
 ):
-    """Save combined PDF (and optional per-plot PDFs) for the simple-counting medsig scans."""
+    """Save combined PDF (and optional per-plot PDFs) for the known-background medsig scans."""
+    qstar_label = rf"Asimov $q_0^\ast${_correction_suffix(continuity_correction_rstar)}"
     with PdfPages(out_pdf) as pdf:
         for idx, s_true in enumerate(s_vec):
             fig, ax = plt.subplots(figsize=PLOT_FIGSIZE, dpi=150)
             if "r" in asimov_statistics:
-                ax.plot(b_values, Z_A_r[idx], label=fr"Asimov $q$, $s_\mathrm{{true}}={s_true}$")
+                ax.plot(b_values, Z_A_r[idx], label=fr"Asimov $q_0$, $s_\mathrm{{true}}={s_true}$")
             if "rstar" in asimov_statistics:
                 ax.plot(
                     b_values,
                     Z_A_rstar[idx],
                     linestyle="--",
-                    label=fr"Asimov $q^\ast$, $s_\mathrm{{true}}={s_true}$",
+                    label=fr"{qstar_label}, $s_\mathrm{{true}}={s_true}$",
                 )
             ax.plot(
                 b_values,
@@ -168,8 +174,9 @@ def make_combined_plot_on(
     out_pdf: Path,
     mc_statistics: list,
     asimov_statistics: list,
+    continuity_correction_rstar: bool,
 ):
-    """Save one panel with all requested simple-counting medsig configurations."""
+    """Save one panel with all requested known-background medsig configurations."""
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
     fig, ax = plt.subplots(figsize=PLOT_FIGSIZE, dpi=150)
 
@@ -187,16 +194,24 @@ def make_combined_plot_on(
 
     stat_handles = []
     if "r" in asimov_statistics:
-        stat_handles.append(Line2D([0], [0], color="0.15", linestyle="-", label=r"Asimov $q$"))
+        stat_handles.append(Line2D([0], [0], color="0.15", linestyle="-", label=r"Asimov $q_0$"))
     if "rstar" in asimov_statistics:
-        stat_handles.append(Line2D([0], [0], color="0.15", linestyle="--", label=r"Asimov $q^\ast$"))
+        stat_handles.append(
+            Line2D(
+                [0],
+                [0],
+                color="0.15",
+                linestyle="--",
+                label=rf"Asimov $q_0^\ast${_correction_suffix(continuity_correction_rstar)}",
+            )
+        )
     stat_handles.append(Line2D([0], [0], color="0.15", linestyle=":", label=r"$s/\sqrt{b}$"))
     if "median" in mc_statistics:
         stat_handles.append(Line2D([0], [0], color="0.15", marker="x", linestyle="None", label=r"MC median"))
 
     legend_kwargs = {
         "frameon": False,
-        "fontsize": 11,
+        "fontsize": 13,
         "borderaxespad": 0.2,
         "handlelength": 1.8,
         "handletextpad": 0.7,
@@ -268,6 +283,7 @@ def main(cfg_path: str):
         save_individual=save_individual,
         mc_statistics=mc_statistics,
         asimov_statistics=asimov_statistics,
+        continuity_correction_rstar=continuity_correction_rstar,
     )
     make_combined_plot_on(
         s_vec=s_vec,
@@ -278,6 +294,7 @@ def main(cfg_path: str):
         out_pdf=out_combined_pdf,
         mc_statistics=mc_statistics,
         asimov_statistics=asimov_statistics,
+        continuity_correction_rstar=continuity_correction_rstar,
     )
 
     if save_individual:
@@ -291,7 +308,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config",
         default="config/simple_medsig.yaml",
-        help="Path to YAML config for simple medsig plots",
+        help="Path to YAML config for known-background medsig plots",
     )
     args = parser.parse_args()
     main(args.config)

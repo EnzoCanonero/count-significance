@@ -28,7 +28,7 @@ def _configure_plot_style():
             "axes.labelsize": 20,
             "xtick.labelsize": 16,
             "ytick.labelsize": 16,
-            "legend.fontsize": 14,
+            "legend.fontsize": 16,
             "lines.markersize": 7,
         }
     )
@@ -47,7 +47,7 @@ def _finish_axes(*axes):
 def _legend_kwargs():
     return {
         "frameon": False,
-        "fontsize": 11,
+        "fontsize": 13,
         "borderaxespad": 0.2,
         "handlelength": 1.8,
         "handletextpad": 0.7,
@@ -66,8 +66,8 @@ def _add_stat_and_m_legends(
     m_anchor: tuple = (0.98, 0.74),
 ):
     stat_handles = [
-        Line2D([0], [0], color="0.15", marker="o", ls="none", ms=7, label=r"$q$"),
-        Line2D([0], [0], color="0.15", marker="^", ls="none", ms=7, label=r"$q^\ast$"),
+        Line2D([0], [0], color="0.15", marker="o", ls="none", ms=7, label=r"$q_0$"),
+        Line2D([0], [0], color="0.15", marker="^", ls="none", ms=7, label=r"$q_0^\ast$"),
     ]
     if include_reference:
         stat_handles.append(Line2D([0], [0], color="0.15", marker="x", ls="none", ms=7, label=reference_label))
@@ -97,7 +97,7 @@ def _fmt(x):
 
 
 def _candidate_off_counts(mu_b: float, sigma_offsets=(-1.0, 0.0, 1.0)) -> np.ndarray:
-    """Representative OFF counts at E[M] + k sqrt(E[M])."""
+    """Representative control counts at E[M] + k sqrt(E[M])."""
     sigma_m = np.sqrt(max(float(mu_b), 0.0))
     m0_raw = np.array(
         [
@@ -111,7 +111,7 @@ def _candidate_off_counts(mu_b: float, sigma_offsets=(-1.0, 0.0, 1.0)) -> np.nda
 
 
 def _ensure_min_off_counts(m0_list: np.ndarray, min_count: int = 3) -> np.ndarray:
-    """Pad the OFF-count slices with consecutive larger integers for plotting stability."""
+    """Pad the control-count slices with consecutive larger integers for plotting stability."""
     m0_list = np.unique(np.sort(np.asarray(m0_list, dtype=int)))
     min_count = max(int(min_count), 0)
     if m0_list.size >= min_count:
@@ -276,14 +276,14 @@ def compute_pvalues_onoff(
         m0_list = nonzero_m0 if nonzero_m0.size > 0 else np.array([1], dtype=int)
     m0_list = _ensure_min_off_counts(m0_list, min_m0_values)
 
-    # Define the scan range for ON counts n0:
+    # Define the scan range for primary counts n0:
     # from n = 0 up to μ_s + 5√μ_s (rounded up), ensuring at least one bin.
     n_min = 0
     n_max_start = max(n_min, int(np.ceil(mu_s + 5.0 * np.sqrt(mu_s))))
 
     results = []
 
-    # Loop over the chosen OFF-count configurations
+    # Loop over the chosen control-count configurations
     for m0 in m0_list:
         threshold = float(s0) + int(m0) / float(tau)
         first_tail_n = int(np.floor(threshold)) + 1
@@ -416,12 +416,12 @@ def make_plots_onoff(
             _add_stat_and_m_legends(ax_top, [res["m0"] for res in group], colors, reference_label)
 
             if include_ratio:
-                ax_bot.set_xlabel(r"$n_0$ (observed ON counts)")
+                ax_bot.set_xlabel(r"$n_0$ (observed primary count)")
                 ax_bot.set_ylabel("rel. abs. diff")
                 ax_bot.set_xlim(n_lo, n_hi)
                 ax_bot.grid(True, which="both", alpha=0.25)
             else:
-                ax_top.set_xlabel(r"$n_0$ (observed ON counts)")
+                ax_top.set_xlabel(r"$n_0$ (observed primary count)")
 
             _finish_axes(ax_top, ax_bot)
             plt.tight_layout()
@@ -494,12 +494,12 @@ def make_significance_plots_onoff(
             )
 
             if include_ratio:
-                ax_bot.set_xlabel(r"$n_0$ (observed ON counts)")
+                ax_bot.set_xlabel(r"$n_0$ (observed primary count)")
                 ax_bot.set_ylabel("rel. abs. diff")
                 ax_bot.set_xlim(n_lo, n_hi)
                 ax_bot.grid(True, which="both", alpha=0.25)
             else:
-                ax_z.set_xlabel(r"$n_0$ (observed ON counts)")
+                ax_z.set_xlabel(r"$n_0$ (observed primary count)")
 
             _finish_axes(ax_z, ax_bot)
             plt.tight_layout()
@@ -508,7 +508,7 @@ def make_significance_plots_onoff(
 
 
 def make_improvement_plots_onoff(results: list, out_pdf: Path, reference_label: str):
-    """Render separate pages showing where q* is closer to MC than q."""
+    """Render separate pages showing where q0* is closer to MC than q0."""
     grouped = defaultdict(list)
     for res in results:
         grouped[(res["s0"], res["b"], res["tau"])].append(res)
@@ -534,8 +534,8 @@ def make_improvement_plots_onoff(results: list, out_pdf: Path, reference_label: 
                 )
 
             ax.axhline(0.0, color="0.25", lw=1)
-            ax.set_xlabel(r"$n_0$ (observed ON counts)")
-            ax.set_ylabel(rf"$|Z_q - Z_\mathrm{{ref}}| - |Z_{{q^\ast}} - Z_\mathrm{{ref}}|$")
+            ax.set_xlabel(r"$n_0$ (observed primary count)")
+            ax.set_ylabel(rf"$|Z_{{q_0}} - Z_\mathrm{{ref}}| - |Z_{{q_0^\ast}} - Z_\mathrm{{ref}}|$")
             ax.grid(True, alpha=0.25)
             ax.legend(frameon=False)
             _finish_axes(ax)
@@ -617,7 +617,7 @@ def main(cfg_path: str):
     if make_significance_plots:
         print(f"Saved significance plots to: {out_significance_pdf.resolve()}")
     if make_improvement_plots:
-        print(f"Saved q* improvement plots to: {out_improvement_pdf.resolve()}")
+        print(f"Saved q0* improvement plots to: {out_improvement_pdf.resolve()}")
 
 
 if __name__ == "__main__":
@@ -625,7 +625,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config",
         default="config/onoff_pval.yaml",
-        help="Path to YAML config for on/off p-value plots",
+        help="Path to YAML config for uncertain-background p-value plots",
     )
     args = parser.parse_args()
     main(args.config)
