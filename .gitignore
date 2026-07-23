@@ -28,7 +28,14 @@ venv/
 # Condor job outputs
 parallelization/logs/
 parallelization/output/
+parallelization/output_s2/
+parallelization/output_s5/
+parallelization/output_s10/
 parallelization/onoff_medsig.pdf
+parallelization/plots_parallel/
+
+# Per-job toy JSONs (large, regenerable) in any output directory
+pval_job_*.json
 
 # Paper build/output directory
 paper/
