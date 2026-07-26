@@ -32,6 +32,7 @@ from src.on_off import asimov_Zs_onoff  # noqa: E402
 from scripts.make_onoff_medsig_plots import (  # noqa: E402
     _configure_plot_style,
     make_plots_onoff,
+    make_combined_grid_plot,
     make_combined_tau_plots,
     make_combined_sigrel_plots,
 )
@@ -175,6 +176,7 @@ def _render(
     out_pdf,
     out_combined_tau_template,
     out_combined_sigrel_template,
+    out_grid_pdf,
     mc_statistics,
     asimov_statistics,
     save_individual,
@@ -241,6 +243,24 @@ def _render(
         asimov_statistics=asimov_statistics,
         y_ceiling=y_ceiling,
     )
+    if out_grid_pdf:
+        make_combined_grid_plot(
+            s_vec=s_vec,
+            tau_vec=tau_vec,
+            rel_sig_vec=rel_sig_vec,
+            b_values_tau=b_values_tau,
+            b_values_sig=b_values_sig,
+            Z_A_r_tau=Z_A_r_tau,
+            Z_A_rstar_tau=Z_A_rstar_tau,
+            Z_A_r_sig=Z_A_r_sig,
+            Z_A_rstar_sig=Z_A_rstar_sig,
+            Z_med_tau=Z_med_tau,
+            Z_med_sig=Z_med_sig,
+            out_pdf=Path(out_grid_pdf),
+            mc_statistics=mc_statistics,
+            asimov_statistics=asimov_statistics,
+            y_ceiling=y_ceiling,
+        )
 
 
 def main():
@@ -325,9 +345,10 @@ def main():
     out_combined_sigrel_template = cfg.get(
         "out_combined_sigrel_template", str(outdir / "onoff_medsig_combined_sigrel_s{s}.pdf")
     )
+    out_grid_pdf = cfg.get("out_grid_pdf")
     _render(
         s_vec, tau_vec, rel_sig_vec, b_values_tau, b_values_sig, grids,
-        out_pdf, out_combined_tau_template, out_combined_sigrel_template,
+        out_pdf, out_combined_tau_template, out_combined_sigrel_template, out_grid_pdf,
         mc_statistics, asimov_statistics, save_individual, outdir,
         y_ceiling=z_ceiling,
     )
@@ -341,9 +362,10 @@ def main():
         )
         alt_tau = cfg.get("alternate_out_combined_tau_template", out_combined_tau_template)
         alt_sig = cfg.get("alternate_out_combined_sigrel_template", out_combined_sigrel_template)
+        alt_grid = cfg.get("alternate_out_grid_pdf")
         _render(
             s_vec, tau_vec, rel_sig_vec, b_values_tau, b_values_sig, grids,
-            alt_pdf, alt_tau, alt_sig,
+            alt_pdf, alt_tau, alt_sig, alt_grid,
             mc_statistics, alternate_asimov_statistics, save_individual, outdir,
             y_ceiling=z_ceiling,
         )
