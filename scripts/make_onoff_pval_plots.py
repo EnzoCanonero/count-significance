@@ -584,7 +584,8 @@ def main(cfg_path: str):
     reference_tail_mass = float(cfg.get("reference_tail_mass", 1e-12))
     max_n = int(cfg.get("max_n", 10_000))
     min_m0_values = int(cfg.get("min_m0_values", 3))
-    reference_label = "Exact" if reference_method == "exact" else "MC"
+    default_reference_label = "Exact" if reference_method == "exact" else "MC"
+    reference_label = str(cfg.get("reference_label", default_reference_label))
     out_pdf = Path(cfg["out_pdf"])
     out_improvement_pdf = Path(
         cfg.get("out_improvement_pdf", out_pdf.with_name(f"{out_pdf.stem}_rstar_improvement.pdf"))
