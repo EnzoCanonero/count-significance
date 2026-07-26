@@ -51,7 +51,7 @@ def _style_medsig_axes(ax, b0_values: np.ndarray, y_max: float):
     ax.set_xscale("log")
     ax.set_xlim(float(b0_values[0]), float(b0_values[-1]))
     ax.set_xlabel(r"$b_0$")
-    ax.set_ylabel(r"$\mathrm{med}[Z_0|1]$")
+    ax.set_ylabel(r"$\operatorname{med}[Z\mid s]$")
     ax.set_ylim(bottom=0.0, top=y_max)
     ax.grid(True, which="both", ls="--", alpha=0.35)
     _finish_axes(ax)

@@ -294,6 +294,7 @@ def make_significance_plot_on(
             else:
                 fig, ax_z = plt.subplots(figsize=PLOT_FIGSIZE)
                 ax_bot = None
+                ax_z.set_box_aspect(1)
 
             ax_z.plot(n_vals, z_r, marker="o", linestyle="None", ms=5, label=r"$q_0$", color="0.15")
             ax_z.plot(

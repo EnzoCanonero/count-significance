@@ -481,6 +481,7 @@ def make_significance_plots_onoff(
             else:
                 fig, ax_z = plt.subplots(figsize=PLOT_FIGSIZE)
                 ax_bot = None
+                ax_z.set_box_aspect(1)
 
             n_lo, n_hi = np.inf, -np.inf
             z_values_for_limits = []

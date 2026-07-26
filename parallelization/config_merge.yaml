@@ -37,11 +37,13 @@ asimov_statistics: [r, rstar]
 out_summary_pdf: "plots_parallel/fig6_7_onoff_asimov_qstar_bundle.pdf"
 out_combined_tau_template: "plots_parallel/fig6_onoff_asimov_qstar_tau_s{s}.pdf"
 out_combined_sigrel_template: "plots_parallel/fig7_onoff_asimov_qstar_sigrel_s{s}.pdf"
+out_grid_pdf: "plots_parallel/uncertain_background_asimov_qstar_grid.pdf"
 
 # Alternate render: q only  -> fig 2
 alternate_asimov_statistics: [r]
 alternate_out_summary_pdf: "plots_parallel/fig2_onoff_asimov_bundle.pdf"
 alternate_out_combined_tau_template: "plots_parallel/fig2_onoff_asimov_tau_s{s}.pdf"
 alternate_out_combined_sigrel_template: "plots_parallel/fig2_onoff_asimov_sigrel_s{s}.pdf"
+alternate_out_grid_pdf: "plots_parallel/uncertain_background_asimov_grid.pdf"
 
 individual_plots: False
