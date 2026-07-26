@@ -157,6 +157,7 @@ def make_plot_on(
     save_individual: bool,
     include_ratio: bool,
     continuity_correction_rstar: bool,
+    reference_label: str,
 ):
     """Render the p-value and relative-diff panels for all (s0, b) configurations."""
     rstar_suffix = _correction_suffix(continuity_correction_rstar)
@@ -211,7 +212,7 @@ def make_plot_on(
                 marker="x",
                 linestyle="None",
                 ms=4,
-                label="Exact",
+                label=reference_label,
                 color="0.15",
             )
             ax_top.set_ylabel("p-value (upper tail)")
@@ -261,6 +262,7 @@ def make_significance_plot_on(
     out_pdf: Path,
     include_ratio: bool,
     continuity_correction_rstar: bool,
+    reference_label: str,
 ):
     """Render significance panels, optionally with relative-difference panels below."""
     rstar_suffix = _correction_suffix(continuity_correction_rstar)
@@ -312,12 +314,11 @@ def make_significance_plot_on(
                 marker="x",
                 linestyle="None",
                 ms=4,
-                label="Exact",
+                label=reference_label,
                 color="0.15",
             )
             ax_z.set_ylabel(r"$Z$")
             _set_count_significance_limits(ax_z, n_vals, z_r, z_rstar, z_true)
-            ax_z.axvline(first_tail_n - 0.5, color="0.55", ls=":", lw=1)
             ax_z.grid(True, alpha=0.25)
             ax_z.legend(frameon=False, loc="lower right")
 
@@ -373,6 +374,7 @@ def main(cfg_path: str):
     trim_to_discovery_tail = bool(cfg.get("trim_to_discovery_tail", True))
     continuity_correction_r = bool(cfg.get("continuity_correction_r", False))
     continuity_correction_rstar = bool(cfg.get("continuity_correction_rstar", True))
+    reference_label = str(cfg.get("reference_label", "Exact"))
 
     out_pdf.parent.mkdir(parents=True, exist_ok=True)
     out_significance_pdf.parent.mkdir(parents=True, exist_ok=True)
@@ -397,6 +399,7 @@ def main(cfg_path: str):
         save_individual,
         include_ratio,
         continuity_correction_rstar=continuity_correction_rstar,
+        reference_label=reference_label,
     )
     if make_significance_plots:
         make_significance_plot_on(
@@ -404,6 +407,7 @@ def main(cfg_path: str):
             out_significance_pdf,
             include_ratio,
             continuity_correction_rstar=continuity_correction_rstar,
+            reference_label=reference_label,
         )
 
     print(f"Saved all plots to: {out_pdf.resolve()}")
