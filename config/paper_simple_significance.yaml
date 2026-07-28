@@ -1,0 +1,19 @@
+# Physics parameters
+s0_vec: [0.0]
+b_vec: [1.0]
+
+# Scan
+max_observed_count: 5
+trim_to_discovery_tail: true
+
+# Statistical options
+continuity_correction_r: false
+continuity_correction_rstar: true
+statistics: [r, rstar]
+
+# Output
+# Paper figure
+out_significance_pdf: "plots/simple_significance_s0_b1.pdf"
+
+# Auxiliary p-value plot
+out_pvalue_pdf: "plots/simple_pval_s0_b1.pdf"

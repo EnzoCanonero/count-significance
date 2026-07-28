@@ -1,26 +1,30 @@
+# Physics parameters
 s_vec: [2.0, 5.0, 10.0]
-tauVec: [0.5, 2.0]
-relSigVec: [0.25, 1.0]
-b_min_tau: 0.1
-b_max_tau: 100.0
-n_bpts_tau: 30
-b_min_sig: 0.1
-b_max_sig: 100.0
-n_bpts_sig: 30
-sigrel_Z: 0.05
+tau_vec: [0.5, 2.0]
+rel_sig_vec: [0.25, 1.0]
+
+# Scan
+b_min: 0.1
+b_max: 100.0
+n_bpts: 30
+
+# Monte Carlo settings
+# These limits are intended for a local terminal run, not batch-production precision.
+n_outer: 100
+mc_sigrel_Z: 0.10
 min_toys: 500
-max_toys: 100000
-n_outer: 300
-outer_seed: 12345
-inner_seed: 67890
-mc_statistics: [median]
-asimov_statistics: [r, rstar]
-outdir: "paper"
-out_summary_pdf: "paper/fig6_7_onoff_asimov_qstar_bundle.pdf"
-out_combined_tau_template: "paper/fig6_onoff_asimov_qstar_tau_s{s}.pdf"
-out_combined_sigrel_template: "paper/fig7_onoff_asimov_qstar_sigrel_s{s}.pdf"
-alternate_asimov_statistics: [r]
-alternate_out_summary_pdf: "paper/fig2_onoff_asimov_bundle.pdf"
-alternate_out_combined_tau_template: "paper/fig2_onoff_asimov_tau_s{s}.pdf"
-alternate_out_combined_sigrel_template: "paper/fig2_onoff_asimov_sigrel_s{s}.pdf"
-individual_plots: False
+max_toys: 50000
+seed: 12345
+
+# Display
+# Graphical only: continuous curves retain their values and higher MC markers are hidden.
+Z_display_max: 5.0
+
+# Figure selection
+statistics: [r, rstar]
+mc_summaries: [median]
+
+# Output
+out_grid_pdf: "plots/uncertain_background_asimov_grid.pdf"
+out_tau_template: "plots/onoff_asimov_tau_s{s}.pdf"
+out_rel_sig_template: "plots/onoff_asimov_sigrel_s{s}.pdf"

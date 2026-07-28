@@ -5,7 +5,6 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.lines import Line2D
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -48,33 +47,28 @@ def _medsig_ymax(*arrays) -> float:
     return max(float(np.max(values)) * 1.04, 1.0)
 
 
-def _style_medsig_axes(ax, b_values: np.ndarray, y_max: float):
+def _style_medsig_axes(ax, b_values: np.ndarray, y_max: float, y_label: str):
     ax.set_box_aspect(1)
     ax.set_xscale("log")
     ax.set_xlim(float(b_values[0]), float(b_values[-1]))
     ax.set_xlabel(r"$b$")
-    ax.set_ylabel(r"$\operatorname{med}[Z\mid s]$")
+    ax.set_ylabel(y_label)
     ax.set_ylim(bottom=0.0, top=y_max)
     ax.grid(True, which="both", ls="--", alpha=0.35)
     _finish_axes(ax)
-
-
-# Call graph (known-background medsig)
-# - main: load config, build b grid, run experiments, then plot
-#   - run_experiments_on: compute Asimov + MC-median Z grids (vectorised expected_significance_on)
-#   - make_plots_on: save combined/individual PDFs
-#     - plot_case (inline inside make_plots_on loop): per-s_true panel with Asimov vs MC median
-
-
-def _fmt(x):
-    return f"{x:g}".replace(".", "p")
 
 
 def _correction_suffix(continuity_corrected: bool) -> str:
     return " (cc)" if continuity_corrected else ""
 
 
-def run_experiments_on(
+def _medsig_y_label(mc_summaries: list) -> str:
+    if "median" in mc_summaries and "mean" not in mc_summaries:
+        return r"$\operatorname{med}[Z\mid s]$"
+    return r"$Z$"
+
+
+def compute_median_significance(
     s_vec: np.ndarray,
     b_values: np.ndarray,
     n_outer: int,
@@ -82,11 +76,7 @@ def run_experiments_on(
     continuity_correction_r: bool = False,
     continuity_correction_rstar: bool = True,
 ):
-    """
-    Compute Asimov and MC-median Z grids for the known-background case via expected_significance_on.
-
-    Returns (Z_A_r, Z_A_rstar, Z_mc_median) shaped (len(s_vec), len(b_values)).
-    """
+    """Compute the Asimov and Monte Carlo significance grids."""
     seed = int(seed)
     n_outer = int(n_outer)
 
@@ -94,7 +84,7 @@ def run_experiments_on(
     s_grid = s_vec[:, None]
     b_grid = b_values[None, :]
 
-    res = expected_significance_on(
+    return expected_significance_on(
         s_true=s_grid,
         b=b_grid,
         n_outer=n_outer,
@@ -102,101 +92,61 @@ def run_experiments_on(
         continuity_correction_r=continuity_correction_r,
         continuity_correction_rstar=continuity_correction_rstar,
     )
-    return res["Z_A_r"], res["Z_A_rstar"], res["Z_mc_median"], res["Z_mc_mean"]
 
 
-def make_plots_on(
+def write_median_significance_pdf(
     s_vec: np.ndarray,
     b_values: np.ndarray,
-    Z_A_r: np.ndarray,
-    Z_A_rstar: np.ndarray,
-    Z_mc_median: np.ndarray,
-    Z_mc_mean: np.ndarray,
+    results: dict,
     out_pdf: Path,
-    save_individual: bool,
-    mc_statistics: list,
-    asimov_statistics: list,
+    statistics: list,
+    mc_summaries: list,
     continuity_correction_rstar: bool,
 ):
-    """Save combined PDF (and optional per-plot PDFs) for the known-background medsig scans."""
-    qstar_label = rf"Asimov $q_0^\ast${_correction_suffix(continuity_correction_rstar)}"
-    with PdfPages(out_pdf) as pdf:
-        for idx, s_true in enumerate(s_vec):
-            fig, ax = plt.subplots(figsize=PLOT_FIGSIZE, dpi=150)
-            if "r" in asimov_statistics:
-                ax.plot(b_values, Z_A_r[idx], label=fr"Asimov $q_0$, $s_\mathrm{{true}}={s_true}$")
-            if "rstar" in asimov_statistics:
-                ax.plot(
-                    b_values,
-                    Z_A_rstar[idx],
-                    linestyle="--",
-                    label=fr"{qstar_label}, $s_\mathrm{{true}}={s_true}$",
-                )
-            ax.plot(
-                b_values,
-                float(s_true) / np.sqrt(b_values),
-                linestyle=":",
-                label=fr"$s/\sqrt{{b}}$, $s_\mathrm{{true}}={s_true}$",
-            )
-            if "median" in mc_statistics:
-                ax.plot(
-                    b_values,
-                    Z_mc_median[idx],
-                    linestyle="None",
-                    marker="o",
-                    label=fr"MC median $Z$, $s_\mathrm{{true}}={s_true}$",
-                )
-            if "mean" in mc_statistics:
-                ax.plot(
-                    b_values,
-                    Z_mc_mean[idx],
-                    linestyle="None",
-                    marker="+",
-                    label=fr"MC mean $Z$, $s_\mathrm{{true}}={s_true}$",
-                )
+    """Write the known-background median-significance plot to a PDF."""
+    Z_A_r = results["Z_A_r"]
+    Z_A_rstar = results["Z_A_rstar"]
+    Z_mc_median = results["Z_mc_median"]
+    Z_mc_mean = results["Z_mc_mean"]
 
-            _style_medsig_axes(ax, b_values, _medsig_ymax(Z_A_r[idx]))
-            ax.legend(frameon=False)
-
-            plt.tight_layout()
-            if save_individual:
-                fname = out_pdf.parent / f"simple_medsig_s{_fmt(s_true)}.pdf"
-                fig.savefig(fname)
-            pdf.savefig(fig)
-            plt.close(fig)
-
-
-def make_combined_plot_on(
-    s_vec: np.ndarray,
-    b_values: np.ndarray,
-    Z_A_r: np.ndarray,
-    Z_A_rstar: np.ndarray,
-    Z_mc_median: np.ndarray,
-    out_pdf: Path,
-    mc_statistics: list,
-    asimov_statistics: list,
-    continuity_correction_rstar: bool,
-):
-    """Save one panel with all requested known-background medsig configurations."""
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
     fig, ax = plt.subplots(figsize=PLOT_FIGSIZE, dpi=150)
 
     for idx, s_true in enumerate(s_vec):
         color = colors[idx % len(colors)]
-        if "r" in asimov_statistics:
+        if "r" in statistics:
             ax.plot(b_values, Z_A_r[idx], color=color, linestyle="-")
-        if "rstar" in asimov_statistics:
+        if "rstar" in statistics:
             ax.plot(b_values, Z_A_rstar[idx], color=color, linestyle="--")
         ax.plot(b_values, float(s_true) / np.sqrt(b_values), color=color, linestyle=":")
-        if "median" in mc_statistics:
+        if "median" in mc_summaries:
             ax.plot(b_values, Z_mc_median[idx], color=color, linestyle="None", marker="o")
+        if "mean" in mc_summaries:
+            ax.plot(b_values, Z_mc_mean[idx], color=color, linestyle="None", marker="+")
 
-    _style_medsig_axes(ax, b_values, _medsig_ymax(Z_A_r))
+    # Let the naive comparison run above the frame rather than compressing the
+    # statistical curves that set the useful plotting range.
+    values_for_limits = []
+    if "r" in statistics:
+        values_for_limits.append(Z_A_r)
+    if "rstar" in statistics:
+        values_for_limits.append(Z_A_rstar)
+    if "median" in mc_summaries:
+        values_for_limits.append(Z_mc_median)
+    if "mean" in mc_summaries:
+        values_for_limits.append(Z_mc_mean)
+
+    _style_medsig_axes(
+        ax,
+        b_values,
+        _medsig_ymax(*values_for_limits),
+        _medsig_y_label(mc_summaries),
+    )
 
     stat_handles = []
-    if "r" in asimov_statistics:
+    if "r" in statistics:
         stat_handles.append(Line2D([0], [0], color="0.15", linestyle="-", label=r"Asimov $q_0$"))
-    if "rstar" in asimov_statistics:
+    if "rstar" in statistics:
         stat_handles.append(
             Line2D(
                 [0],
@@ -207,8 +157,10 @@ def make_combined_plot_on(
             )
         )
     stat_handles.append(Line2D([0], [0], color="0.15", linestyle=":", label=r"$s/\sqrt{b}$"))
-    if "median" in mc_statistics:
+    if "median" in mc_summaries:
         stat_handles.append(Line2D([0], [0], color="0.15", marker="o", linestyle="None", label=r"MC median"))
+    if "mean" in mc_summaries:
+        stat_handles.append(Line2D([0], [0], color="0.15", marker="+", linestyle="None", label=r"MC mean"))
 
     legend_kwargs = {
         "frameon": False,
@@ -252,19 +204,32 @@ def main(cfg_path: str):
     n_outer = int(cfg.get("n_outer", 200))
     seed = int(cfg.get("seed", 12345))
     out_pdf = Path(cfg["out_pdf"])
-    out_combined_pdf = Path(cfg.get("out_combined_pdf", out_pdf.with_name(f"{out_pdf.stem}_combined.pdf")))
-    save_individual = bool(cfg.get("individual_plots", False))
     continuity_correction_r = bool(cfg.get("continuity_correction_r", False))
     continuity_correction_rstar = bool(cfg.get("continuity_correction_rstar", True))
 
-    mc_statistics = cfg.get("mc_statistics", ["median"])
-    asimov_statistics = cfg.get("asimov_statistics", ["r", "rstar"])
+    selected_statistics = cfg.get("statistics", ["r", "rstar"])
+    if not isinstance(selected_statistics, list):
+        raise ValueError("statistics must be a YAML list")
+    statistics = [str(statistic).lower() for statistic in selected_statistics]
+    for statistic in statistics:
+        if statistic not in ("r", "rstar"):
+            raise ValueError(f"Unknown statistic={statistic!r}")
+
+    selected_mc_summaries = cfg.get("mc_summaries", ["median"])
+    if not isinstance(selected_mc_summaries, list):
+        raise ValueError("mc_summaries must be a YAML list")
+    mc_summaries = [str(summary).lower() for summary in selected_mc_summaries]
+    for summary in mc_summaries:
+        if summary not in ("median", "mean"):
+            raise ValueError(f"Unknown MC summary={summary!r}")
+
+    if not statistics and not mc_summaries:
+        raise ValueError("Select at least one statistic or Monte Carlo summary")
 
     out_pdf.parent.mkdir(parents=True, exist_ok=True)
-    out_combined_pdf.parent.mkdir(parents=True, exist_ok=True)
     b_values = np.logspace(np.log10(b_min), np.log10(b_max), n_bpts)
 
-    Z_A_r, Z_A_rstar, Z_mc_median, Z_mc_mean = run_experiments_on(
+    results = compute_median_significance(
         s_vec=s_vec,
         b_values=b_values,
         n_outer=n_outer,
@@ -273,43 +238,25 @@ def main(cfg_path: str):
         continuity_correction_rstar=continuity_correction_rstar,
     )
 
-    make_plots_on(
+    write_median_significance_pdf(
         s_vec=s_vec,
         b_values=b_values,
-        Z_A_r=Z_A_r,
-        Z_A_rstar=Z_A_rstar,
-        Z_mc_median=Z_mc_median,
-        Z_mc_mean=Z_mc_mean,
+        results=results,
         out_pdf=out_pdf,
-        save_individual=save_individual,
-        mc_statistics=mc_statistics,
-        asimov_statistics=asimov_statistics,
-        continuity_correction_rstar=continuity_correction_rstar,
-    )
-    make_combined_plot_on(
-        s_vec=s_vec,
-        b_values=b_values,
-        Z_A_r=Z_A_r,
-        Z_A_rstar=Z_A_rstar,
-        Z_mc_median=Z_mc_median,
-        out_pdf=out_combined_pdf,
-        mc_statistics=mc_statistics,
-        asimov_statistics=asimov_statistics,
+        statistics=statistics,
+        mc_summaries=mc_summaries,
         continuity_correction_rstar=continuity_correction_rstar,
     )
 
-    if save_individual:
-        print(f"Saved individual plots under: {out_pdf.parent.resolve()}")
-    print(f"Saved all plots to: {out_pdf.resolve()}")
-    print(f"Saved combined plot to: {out_combined_pdf.resolve()}")
+    print(f"Saved plot to: {out_pdf.resolve()}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--config",
-        default="config/simple_medsig.yaml",
-        help="Path to YAML config for known-background medsig plots",
+        default="config/paper_simple_medsig.yaml",
+        help="Path to YAML config for the known-background paper plots",
     )
     args = parser.parse_args()
     main(args.config)

@@ -31,18 +31,11 @@ def _configure_plot_style():
     )
 
 
-def _finish_axes(*axes):
-    for ax in axes:
-        if ax is None:
-            continue
-        ax.tick_params(axis="both", which="major", labelsize=16, width=1.3, length=6)
-        ax.tick_params(axis="both", which="minor", width=1.0, length=3)
-        for spine in ax.spines.values():
-            spine.set_linewidth(1.2)
-
-
-def _fmt(x):
-    return f"{x:g}".replace(".", "p")
+def _finish_axes(ax):
+    ax.tick_params(axis="both", which="major", labelsize=16, width=1.3, length=6)
+    ax.tick_params(axis="both", which="minor", width=1.0, length=3)
+    for spine in ax.spines.values():
+        spine.set_linewidth(1.2)
 
 
 def _z_from_p(p):
@@ -79,15 +72,15 @@ def _n_max_for_target_z_on(s0: float, b: float, start_n: int, target_z: float, m
     target_p = float(norm.sf(target_z))
     n = int(start_n)
     while n < max_n:
-        p_true = float(pvals_on(float(s0), float(b), np.array([n], dtype=int))["p_true"][0])
-        if p_true <= target_p:
+        p_ref = float(pvals_on(float(s0), float(b), np.array([n], dtype=int))["p_true"][0])
+        if p_ref <= target_p:
             return n
         n += 1
 
     raise RuntimeError(f"Failed to reach Z={target_z:g} by n={max_n}")
 
 
-def compute_pvalues_on(
+def compute_pvalue_scans(
     s0: float,
     b: float,
     target_z: float = 5.0,
@@ -96,8 +89,7 @@ def compute_pvalues_on(
     continuity_correction_r: bool = False,
     continuity_correction_rstar: bool = True,
 ):
-    """Compute p-values and relative differences for all n given a single (s0, b)."""
-    eps = 1e-16
+    """Compute the reference and asymptotic p-values for one (s0, b) scan."""
     mu0 = float(s0 + b)
     # Define the scan range for counts n:
     # keep the last plateau point, then scan the one-sided discovery tail.
@@ -121,235 +113,133 @@ def compute_pvalues_on(
         continuity_correction_r=continuity_correction_r,
         continuity_correction_rstar=continuity_correction_rstar,
     )
-    p_true = np.asarray(out["p_true"], dtype=float)
+    p_ref = np.asarray(out["p_true"], dtype=float)
     p_r = np.asarray(out["p_r"], dtype=float)
     p_rstar = np.asarray(out["p_rstar"], dtype=float)
 
-    denom = np.clip(p_true, eps, None)
-    rel_r = np.abs(p_r - p_true) / denom
-    rel_rstar = np.abs(p_rstar - p_true) / denom
-
-    results = []
-    results.append(
-        {
-            "s0": float(s0),
-            "b": float(b),
-            "mu0": mu0,
-            "n_vals": n_vals,
-            "n_min": int(n_vals[0]),
-            "n_max": n_max,
-            "tail_threshold": tail_threshold,
-            "first_tail_n": first_tail_n,
-            "p_true": np.maximum(p_true, eps),
-            "p_r": np.maximum(p_r, eps),
-            "p_rstar": np.maximum(p_rstar, eps),
-            "rel_r": np.maximum(rel_r, eps),
-            "rel_rstar": np.maximum(rel_rstar, eps),
-        }
-    )
-
-    return results
+    return {
+        "n_vals": n_vals,
+        "first_tail_n": first_tail_n,
+        "p_ref": p_ref,
+        "p_r": p_r,
+        "p_rstar": p_rstar,
+    }
 
 
-def make_plot_on(
+def write_pvalue_pdf(
     results: list,
     out_pdf: Path,
-    save_individual: bool,
-    include_ratio: bool,
+    statistics: list,
     continuity_correction_rstar: bool,
-    reference_label: str,
 ):
-    """Render the p-value and relative-diff panels for all (s0, b) configurations."""
+    """Write the p-value scans to a PDF."""
     rstar_suffix = _correction_suffix(continuity_correction_rstar)
     with PdfPages(out_pdf) as pdf:
         for res in results:
-            s0 = res["s0"]
-            b = res["b"]
-            mu0 = res["mu0"]
             n_vals = res["n_vals"]
-            n_min = res["n_min"]
-            n_max = res["n_max"]
-            p_true = res["p_true"]
+            p_ref = res["p_ref"]
             p_r = res["p_r"]
             p_rstar = res["p_rstar"]
-            rel_r = res["rel_r"]
-            rel_rstar = res["rel_rstar"]
             first_tail_n = res["first_tail_n"]
 
-            if include_ratio:
-                fig, (ax_top, ax_bot) = plt.subplots(
-                    2,
-                    1,
-                    figsize=PLOT_FIGSIZE,
-                    sharex=True,
-                    gridspec_kw={"height_ratios": [3.5, 1.2]},
-                )
-            else:
-                fig, ax_top = plt.subplots(figsize=PLOT_FIGSIZE)
-                ax_bot = None
+            fig, ax = plt.subplots(figsize=PLOT_FIGSIZE)
 
-            ax_top.semilogy(
+            if "r" in statistics:
+                ax.semilogy(
+                    n_vals,
+                    p_r,
+                    marker="o",
+                    linestyle="None",
+                    ms=5,
+                    label=r"$1-\Phi(\sqrt{q_0})$",
+                    color="0.15",
+                )
+            if "rstar" in statistics:
+                ax.semilogy(
+                    n_vals,
+                    p_rstar,
+                    marker="^",
+                    linestyle="None",
+                    ms=5,
+                    label=rf"$1-\Phi(\sqrt{{q_0^\ast}})${rstar_suffix}",
+                    color="0.15",
+                )
+            ax.semilogy(
                 n_vals,
-                p_r,
-                marker="o",
-                linestyle="None",
-                ms=5,
-                label=r"$1-\Phi(q_0)$",
-                color="0.15",
-            )
-            ax_top.semilogy(
-                n_vals,
-                p_rstar,
-                marker="^",
-                linestyle="None",
-                ms=5,
-                label=rf"$1-\Phi(q_0^\ast)${rstar_suffix}",
-                color="0.15",
-            )
-            ax_top.semilogy(
-                n_vals,
-                p_true,
+                p_ref,
                 marker="x",
                 linestyle="None",
                 ms=4,
-                label=reference_label,
+                label="Exact",
                 color="0.15",
             )
-            ax_top.set_ylabel("p-value (upper tail)")
-            ax_top.set_xlim(n_vals[0], n_vals[-1])
-            ax_top.axvline(first_tail_n - 0.5, color="0.55", ls=":", lw=1)
-            ax_top.grid(True, which="both", alpha=0.25)
-            ax_top.legend(frameon=False, loc="upper right")
+            ax.set_ylabel("p-value (upper tail)")
+            ax.set_xlim(n_vals[0], n_vals[-1])
+            ax.axvline(first_tail_n - 0.5, color="0.55", ls=":", lw=1)
+            ax.grid(True, which="both", alpha=0.25)
+            ax.legend(frameon=False, loc="lower left")
+            ax.set_xlabel("Observed count n")
 
-            if include_ratio:
-                ax_bot.axvline(first_tail_n - 0.5, color="0.55", ls=":", lw=1)
-                ax_bot.semilogy(
-                    n_vals,
-                    rel_r,
-                    marker="o",
-                    linestyle="None",
-                    ms=4,
-                    label=r"$|p_{q_0}-p_\mathrm{Exact}|/p_\mathrm{Exact}$",
-                    color="0.15",
-                )
-                ax_bot.semilogy(
-                    n_vals,
-                    rel_rstar,
-                    marker="^",
-                    linestyle="None",
-                    ms=4,
-                    label=rf"$|p_{{q_0^\ast}}-p_\mathrm{{Exact}}|/p_\mathrm{{Exact}}${rstar_suffix}",
-                    color="0.15",
-                )
-                ax_bot.set_xlabel("Observed count n")
-                ax_bot.set_ylabel("rel. abs. diff")
-                ax_bot.grid(True, which="both", alpha=0.25)
-                ax_bot.legend(frameon=False)
-            else:
-                ax_top.set_xlabel("Observed count n")
-
-            _finish_axes(ax_top, ax_bot)
+            _finish_axes(ax)
             plt.tight_layout()
-            if save_individual:
-                fname = out_pdf.parent / f"simple_pval_s{_fmt(s0)}_b{_fmt(b)}.pdf"
-                fig.savefig(fname)
             pdf.savefig(fig)
             plt.close(fig)
 
 
-def make_significance_plot_on(
+def write_significance_pdf(
     results: list,
     out_pdf: Path,
-    include_ratio: bool,
+    statistics: list,
     continuity_correction_rstar: bool,
-    reference_label: str,
 ):
-    """Render significance panels, optionally with relative-difference panels below."""
+    """Write the significance scans to a PDF."""
     rstar_suffix = _correction_suffix(continuity_correction_rstar)
     with PdfPages(out_pdf) as pdf:
         for res in results:
-            s0 = res["s0"]
-            b = res["b"]
-            mu0 = res["mu0"]
             n_vals = res["n_vals"]
-            n_min = res["n_min"]
-            n_max = res["n_max"]
-            p_true = res["p_true"]
+            p_ref = res["p_ref"]
             p_r = res["p_r"]
             p_rstar = res["p_rstar"]
-            rel_r = res["rel_r"]
-            rel_rstar = res["rel_rstar"]
-            first_tail_n = res["first_tail_n"]
 
-            z_true = _z_from_p(p_true)
+            z_ref = _z_from_p(p_ref)
             z_r = _z_from_p(p_r)
             z_rstar = _z_from_p(p_rstar)
 
-            if include_ratio:
-                fig, (ax_z, ax_bot) = plt.subplots(
-                    2,
-                    1,
-                    figsize=PLOT_FIGSIZE,
-                    sharex=True,
-                    gridspec_kw={"height_ratios": [3.5, 1.2]},
-                )
-            else:
-                fig, ax_z = plt.subplots(figsize=PLOT_FIGSIZE)
-                ax_bot = None
-                ax_z.set_box_aspect(1)
+            fig, ax_z = plt.subplots(figsize=PLOT_FIGSIZE)
+            ax_z.set_box_aspect(1)
 
-            ax_z.plot(n_vals, z_r, marker="o", linestyle="None", ms=5, label=r"$q_0$", color="0.15")
+            z_values_for_limits = [z_ref]
+            if "r" in statistics:
+                ax_z.plot(n_vals, z_r, marker="o", linestyle="None", ms=5, label=r"$q_0$", color="0.15")
+                z_values_for_limits.append(z_r)
+            if "rstar" in statistics:
+                ax_z.plot(
+                    n_vals,
+                    z_rstar,
+                    marker="^",
+                    linestyle="None",
+                    ms=5,
+                    label=rf"$q_0^\ast${rstar_suffix}",
+                    color="0.15",
+                )
+                z_values_for_limits.append(z_rstar)
             ax_z.plot(
                 n_vals,
-                z_rstar,
-                marker="^",
-                linestyle="None",
-                ms=5,
-                label=rf"$q_0^\ast${rstar_suffix}",
-                color="0.15",
-            )
-            ax_z.plot(
-                n_vals,
-                z_true,
+                z_ref,
                 marker="x",
                 linestyle="None",
                 ms=4,
-                label=reference_label,
+                label="Exact",
                 color="0.15",
             )
-            ax_z.set_ylabel(r"$Z$")
-            _set_count_significance_limits(ax_z, n_vals, z_r, z_rstar, z_true)
+            ax_z.set_ylabel(r"Significance $Z$")
+            _set_count_significance_limits(ax_z, n_vals, *z_values_for_limits)
             ax_z.grid(True, alpha=0.25)
             ax_z.legend(frameon=False, loc="lower right")
 
-            if include_ratio:
-                ax_bot.axvline(first_tail_n - 0.5, color="0.55", ls=":", lw=1)
-                ax_bot.semilogy(
-                    n_vals,
-                    rel_r,
-                    marker="o",
-                    linestyle="None",
-                    ms=4,
-                    label=r"$|p_{q_0}-p_\mathrm{Exact}|/p_\mathrm{Exact}$",
-                    color="0.15",
-                )
-                ax_bot.semilogy(
-                    n_vals,
-                    rel_rstar,
-                    marker="^",
-                    linestyle="None",
-                    ms=4,
-                    label=rf"$|p_{{q_0^\ast}}-p_\mathrm{{Exact}}|/p_\mathrm{{Exact}}${rstar_suffix}",
-                    color="0.15",
-                )
-                ax_bot.set_xlabel("Observed count n")
-                ax_bot.set_ylabel("rel. abs. diff")
-                ax_bot.grid(True, which="both", alpha=0.25)
-                ax_bot.legend(frameon=False)
-            else:
-                ax_z.set_xlabel("Observed count n")
+            ax_z.set_xlabel("Observed count n")
 
-            _finish_axes(ax_z, ax_bot)
+            _finish_axes(ax_z)
             plt.tight_layout()
             pdf.savefig(fig)
             plt.close(fig)
@@ -364,63 +254,62 @@ def main(cfg_path: str):
     target_z = float(cfg.get("target_Z", 5.0))
     max_observed_count = cfg.get("max_observed_count")
     max_observed_count = None if max_observed_count is None else int(max_observed_count)
-    out_pdf = Path(cfg["out_pdf"])
-    out_significance_pdf = Path(
-        cfg.get("out_significance_pdf", out_pdf.with_name(f"{out_pdf.stem}_with_significance.pdf"))
-    )
-    save_individual = bool(cfg.get("individual_plots", False))
-    include_ratio = bool(cfg.get("ratio_plots", False))
-    make_significance_plots = bool(cfg.get("significance_plots", cfg.get("significance_pvalue_plots", True)))
+    out_significance_pdf = Path(cfg["out_significance_pdf"])
+    out_pvalue_pdf = Path(cfg["out_pvalue_pdf"])
     trim_to_discovery_tail = bool(cfg.get("trim_to_discovery_tail", True))
     continuity_correction_r = bool(cfg.get("continuity_correction_r", False))
     continuity_correction_rstar = bool(cfg.get("continuity_correction_rstar", True))
-    reference_label = str(cfg.get("reference_label", "Exact"))
+    selected_statistics = cfg.get("statistics", ["r", "rstar"])
+    if not isinstance(selected_statistics, list):
+        raise ValueError("statistics must be a YAML list")
+    statistics = [str(statistic).lower() for statistic in selected_statistics]
+    for statistic in statistics:
+        if statistic not in ("r", "rstar"):
+            raise ValueError(f"Unknown statistic={statistic!r}")
+    if not statistics:
+        raise ValueError("statistics must include r, rstar, or both")
 
-    out_pdf.parent.mkdir(parents=True, exist_ok=True)
     out_significance_pdf.parent.mkdir(parents=True, exist_ok=True)
+    out_pvalue_pdf.parent.mkdir(parents=True, exist_ok=True)
 
-    combos = np.array(np.meshgrid(s0_vec, b_vec)).T.reshape(-1, 2)
     all_results = []
-    for s0, b in combos:
-        all_results.extend(
-            compute_pvalues_on(
-                float(s0),
-                float(b),
-                target_z=target_z,
-                max_observed_count=max_observed_count,
-                trim_to_discovery_tail=trim_to_discovery_tail,
-                continuity_correction_r=continuity_correction_r,
-                continuity_correction_rstar=continuity_correction_rstar,
+    for s0 in s0_vec:
+        for b in b_vec:
+            all_results.append(
+                compute_pvalue_scans(
+                    float(s0),
+                    float(b),
+                    target_z=target_z,
+                    max_observed_count=max_observed_count,
+                    trim_to_discovery_tail=trim_to_discovery_tail,
+                    continuity_correction_r=continuity_correction_r,
+                    continuity_correction_rstar=continuity_correction_rstar,
+                )
             )
-        )
-    make_plot_on(
-        all_results,
-        out_pdf,
-        save_individual,
-        include_ratio,
-        continuity_correction_rstar=continuity_correction_rstar,
-        reference_label=reference_label,
-    )
-    if make_significance_plots:
-        make_significance_plot_on(
-            all_results,
-            out_significance_pdf,
-            include_ratio,
-            continuity_correction_rstar=continuity_correction_rstar,
-            reference_label=reference_label,
-        )
 
-    print(f"Saved all plots to: {out_pdf.resolve()}")
-    if make_significance_plots:
-        print(f"Saved significance plots to: {out_significance_pdf.resolve()}")
+    write_pvalue_pdf(
+        all_results,
+        out_pvalue_pdf,
+        statistics=statistics,
+        continuity_correction_rstar=continuity_correction_rstar,
+    )
+    write_significance_pdf(
+        all_results,
+        out_significance_pdf,
+        statistics=statistics,
+        continuity_correction_rstar=continuity_correction_rstar,
+    )
+
+    print(f"Saved paper plot to: {out_significance_pdf.resolve()}")
+    print(f"Saved auxiliary p-value plot to: {out_pvalue_pdf.resolve()}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--config",
-        default="config/simple_pval.yaml",
-        help="Path to YAML config for known-background p-value plots",
+        default="config/paper_simple_significance.yaml",
+        help="Path to YAML config for the known-background significance paper plot",
     )
     args = parser.parse_args()
     main(args.config)
