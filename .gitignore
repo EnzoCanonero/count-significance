@@ -23,9 +23,5 @@ venv/
 # Python packaging artifacts
 *.egg-info/
 
-# Condor job outputs
-parallelization/logs/
-parallelization/output*/
-parallelization/onoff_medsig.pdf
-parallelization/plots_parallel/
-pval_job_*.json
+# Batch campaign outputs
+/runs/

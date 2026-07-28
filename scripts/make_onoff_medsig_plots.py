@@ -23,7 +23,7 @@ PLOT_ADJUST = {
 }
 
 
-def _configure_plot_style():
+def configure_plot_style():
     plt.rcParams.update(
         {
             "font.size": 16,
@@ -82,6 +82,18 @@ def _display_y_max(values, z_display_max):
     if z_display_max is not None:
         return float(z_display_max)
     return _medsig_ymax(*values)
+
+
+def mask_mc_at_display_max(results, z_display_max):
+    """Hide MC summaries at or above the graphical display maximum."""
+    if z_display_max is None:
+        return
+
+    z_display_max = float(z_display_max)
+    for scan_results in results.values():
+        for key in ("Z_mc_median", "Z_mc_mean"):
+            values = scan_results[key]
+            values[values >= z_display_max] = np.nan
 
 
 def _selected_y_values(scan_results, s_idx, statistics, mc_summaries):
@@ -526,23 +538,24 @@ def _add_combined_legends(
 
 
 def main(cfg_path: str):
-    _configure_plot_style()
+    configure_plot_style()
 
     cfg = load_yaml(cfg_path)
+    local_mc = cfg["local_mc"]
     s_vec = np.asarray(cfg["s_vec"], dtype=float)
     tau_vec = np.asarray(cfg["tau_vec"], dtype=float)
     rel_sig_vec = np.asarray(cfg["rel_sig_vec"], dtype=float)
     b_values = np.logspace(
         np.log10(cfg["b_min"]),
         np.log10(cfg["b_max"]),
-        int(cfg["n_bpts"]),
+        int(local_mc["n_bpts"]),
     )
 
-    n_outer = int(cfg["n_outer"])
-    seed = int(cfg.get("seed", 12345))
-    mc_sigrel_z = float(cfg["mc_sigrel_Z"])
-    min_toys = int(cfg["min_toys"])
-    max_toys = int(cfg["max_toys"])
+    n_outer = int(local_mc["n_outer"])
+    seed = int(local_mc.get("seed", 12345))
+    mc_sigrel_z = float(local_mc["mc_sigrel_Z"])
+    min_toys = int(local_mc["min_toys"])
+    max_toys = int(local_mc["max_toys"])
 
     selected_statistics = cfg.get("statistics", ["r", "rstar"])
     if not isinstance(selected_statistics, list):
@@ -581,13 +594,8 @@ def main(cfg_path: str):
         seed=seed,
     )
 
-    # The display limit is graphical only. Hide MC markers that cannot be
-    # distinguished above it, while leaving the calculated curves unchanged.
-    if z_display_max is not None:
-        z_display_max = float(z_display_max)
-        for scan_results in results.values():
-            scan_results["Z_mc_median"][scan_results["Z_mc_median"] >= z_display_max] = np.nan
-            scan_results["Z_mc_mean"][scan_results["Z_mc_mean"] >= z_display_max] = np.nan
+    # The display limit does not alter the continuous statistical curves.
+    mask_mc_at_display_max(results, z_display_max)
 
     write_median_significance_pdfs(
         s_vec=s_vec,

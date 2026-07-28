@@ -1,0 +1,25 @@
+# Generic Condor description for one signal in an on/off medsig campaign.
+# The submission helper supplies all macros used below.
+
+universe                  = vanilla
+executable                = $(wrapper_path)
+arguments                 = $(worker_path) --config $(config_path) --signal-index $(signal_index) --job-id $(Process) --run $(run_name) --commit $(commit) --output result.json
+
+should_transfer_files     = YES
+when_to_transfer_output   = ON_EXIT
+preserve_relative_paths   = True
+transfer_input_files      = $(source_path), $(worker_path), $(config_path)
+transfer_output_files     = result.json
+transfer_output_remaps    = "result.json=runs/$(run_name)/results/$(signal_tag)/job_$(Process).json"
+
+output                    = runs/$(run_name)/logs/$(signal_tag)_job_$(Process).out
+error                     = runs/$(run_name)/logs/$(signal_tag)_job_$(Process).err
+log                       = runs/$(run_name)/logs/$(signal_tag)_job_$(Process).log
+
+request_cpus              = 1
+request_memory            = 4096MB
+getenv                    = MEDSIG_SETUP_SCRIPT
+
+on_exit_hold              = (ExitBySignal == True) || (ExitCode != 0)
+
+queue $(n_jobs)

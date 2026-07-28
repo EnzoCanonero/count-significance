@@ -6,15 +6,43 @@ rel_sig_vec: [0.25, 1.0]
 # Scan
 b_min: 0.1
 b_max: 100.0
-n_bpts: 30
 
-# Monte Carlo settings
-# These limits are intended for a local terminal run, not batch-production precision.
-n_outer: 100
-mc_sigrel_Z: 0.10
-min_toys: 500
-max_toys: 50000
-seed: 12345
+# Local Monte Carlo settings
+# The serial script uses this practical profile for runs from a local terminal.
+local_mc:
+  n_bpts: 30
+  n_outer: 100
+  mc_sigrel_Z: 0.10
+  min_toys: 500
+  max_toys: 50000
+  seed: 12345
+
+# Batch Monte Carlo settings
+# These are the production settings used for the manuscript calculation.
+batch_mc:
+  n_bpts: 50
+  n_outer: 2000
+  mc_sigrel_Z: 0.02
+  min_toys: 1000
+  signal_jobs:
+    - s_true: 2.0
+      max_toys: 10000
+      outer_per_job: 100
+      n_jobs: 20
+      outer_seed: 10000
+      inner_seed: 110000
+    - s_true: 5.0
+      max_toys: 10000000
+      outer_per_job: 5
+      n_jobs: 400
+      outer_seed: 20000
+      inner_seed: 120000
+    - s_true: 10.0
+      max_toys: 10000000
+      outer_per_job: 5
+      n_jobs: 400
+      outer_seed: 30000
+      inner_seed: 130000
 
 # Display
 # Graphical only: continuous curves retain their values and higher MC markers are hidden.
