@@ -408,7 +408,6 @@ def submit_signal(run_name, commit, config_copy, input_dir, signal):
 
 def main():
     args = parse_args()
-    os.chdir(ROOT)
 
     try:
         validate_run_name(args.run)

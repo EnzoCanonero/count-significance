@@ -1,5 +1,13 @@
+"""Poisson on/off counting model with an uncertain background.
+
+The model is N ~ Pois(s + b), M ~ Pois(tau b), with ``b >= 0`` and
+``tau > 0``.  The likelihood uses the unconstrained signal estimate
+``s_hat = n - m/tau``.  Discovery results apply the directional convention
+``Z = max(0, r)`` after evaluating either ``r`` or its higher-order form
+``r*``.
+"""
+
 import math
-from typing import Tuple
 
 import numpy as np
 from scipy.stats import norm, poisson
@@ -7,81 +15,136 @@ from scipy.stats import norm, poisson
 from .common import discovery_pvalue, discovery_z, norm_survival
 
 
-def xlogy(a, b):
-    """Compute a*log(b) with 0*log(·)=0, assumes b>0 when a>0."""
-    a, b = np.broadcast_arrays(
-        np.asarray(a, dtype=float),
-        np.asarray(b, dtype=float),
+# Profile likelihood and signed roots
+
+
+def _xlogy(count, argument):
+    """Evaluate ``count * log(argument)`` with the limit ``0 log(x)=0``."""
+    count, argument = np.broadcast_arrays(
+        np.asarray(count, dtype=float),
+        np.asarray(argument, dtype=float),
     )
-    out = np.zeros_like(a, dtype=float)
-    mask = a > 0
-    out[mask] = a[mask] * np.log(b[mask])
-    return out
+    result = np.zeros_like(count, dtype=float)
+    positive_count = count > 0.0
+    result[positive_count] = (
+        count[positive_count] * np.log(argument[positive_count])
+    )
+    return result
 
 
 def b_profiled(s, n, m, tau):
-    s = np.asarray(s, dtype=float)
-    A = (n + m) - (1.0 + tau) * s
-    disc = A**2 + 4.0 * (1.0 + tau) * m * s
-    disc = np.maximum(disc, 0.0)
-    return (A + np.sqrt(disc)) / (2.0 * (1.0 + tau))
+    """Profiled background estimate for a fixed tested signal ``s``.
+
+    The non-negative quadratic root is
+
+        b_tilde = [A + sqrt(A^2 + 4 (1 + tau) m s)] / [2 (1 + tau)],
+        A = n + m - (1 + tau) s.
+
+    The physical on/off model assumes ``s >= 0``, ``n,m >= 0`` and ``tau > 0``.
+    Scalars and broadcastable arrays are accepted.
+    """
+    s, n, m, tau = np.broadcast_arrays(
+        np.asarray(s, dtype=float),
+        np.asarray(n, dtype=float),
+        np.asarray(m, dtype=float),
+        np.asarray(tau, dtype=float),
+    )
+    if np.any(tau <= 0.0):
+        raise ValueError("tau must be positive")
+
+    linear_term = (n + m) - (1.0 + tau) * s
+    discriminant = linear_term**2 + 4.0 * (1.0 + tau) * m * s
+    discriminant = np.maximum(discriminant, 0.0)
+    return (linear_term + np.sqrt(discriminant)) / (2.0 * (1.0 + tau))
 
 
 def loglik_diff(s, n, m, tau):
-    """
-    Δℓ(s) = ℓ(s_hat, b_hat) - ℓ_p(s)
-    - Negative Poisson means ⇒ NaN (undefined model)
-    - Zero means ⇒ use the continuous limit (finite if count is zero, +inf if count>0)
+    """Profile log-likelihood difference at a fixed signal value.
+
+    This is ``Delta ell(s) = ell(s_hat, b_hat) - ell_p(s)``.  Products
+    ``0 log 0`` are evaluated by continuity.  With profiled means
+    ``mu_on=s+b_tilde`` and ``mu_off=tau*b_tilde``, it is
+
+        n log(n/mu_on) + m log(m/mu_off) - n - m + mu_on + mu_off.
+
+    A zero mean with a positive observed count gives ``+inf``; a negative
+    Poisson mean gives ``nan``.
     """
     s = np.asarray(s, dtype=float)
-    btilde = b_profiled(s, n, m, tau)
-    mu_on = s + btilde
-    mu_off = tau * btilde
+    n_observed = np.asarray(n, dtype=float)
+    m_observed = np.asarray(m, dtype=float)
+    background_profile = b_profiled(s, n_observed, m_observed, tau)
+    mean_on = s + background_profile
+    mean_off = tau * background_profile
 
-    # Only negative means are invalid; zero means are allowed as limits.
-    negative_mu = (mu_on < 0.0) | (mu_off < 0.0)
+    ratio_on = np.ones_like(mean_on, dtype=float)
+    ratio_off = np.ones_like(mean_off, dtype=float)
+    positive_mean_on = mean_on > 0.0
+    positive_mean_off = mean_off > 0.0
 
-    # Safe ratios for log terms.
-    n_arr = np.asarray(n, dtype=float)
-    m_arr = np.asarray(m, dtype=float)
-
-    ratio_on = np.ones_like(mu_on, dtype=float)
-    ratio_off = np.ones_like(mu_off, dtype=float)
-
-    pos_on = mu_on > 0
-    pos_off = mu_off > 0
-
-    ratio_on = np.divide(n_arr, mu_on, out=ratio_on, where=pos_on)
-    ratio_off = np.divide(m_arr, mu_off, out=ratio_off, where=pos_off)
-
-    # If mean is zero but count > 0, push ratio to +inf (correct limiting loglik).
-    ratio_on = np.where((~pos_on) & (n_arr > 0), np.inf, ratio_on)
-    ratio_off = np.where((~pos_off) & (m_arr > 0), np.inf, ratio_off)
-
-    ll = (
-        xlogy(n_arr, ratio_on)
-        + xlogy(m_arr, ratio_off)
-        - (n_arr + m_arr)
-        + s
-        + (1.0 + tau) * btilde
+    ratio_on = np.divide(
+        n_observed,
+        mean_on,
+        out=ratio_on,
+        where=positive_mean_on,
+    )
+    ratio_off = np.divide(
+        m_observed,
+        mean_off,
+        out=ratio_off,
+        where=positive_mean_off,
     )
 
-    if np.any(negative_mu):
-        ll = np.asarray(ll, dtype=float)
-        ll[negative_mu] = np.nan
+    # A positive count with zero mean has an infinite likelihood difference.
+    ratio_on = np.where(
+        (~positive_mean_on) & (n_observed > 0.0),
+        np.inf,
+        ratio_on,
+    )
+    ratio_off = np.where(
+        (~positive_mean_off) & (m_observed > 0.0),
+        np.inf,
+        ratio_off,
+    )
 
-    return ll
+    delta_log_likelihood = (
+        _xlogy(n_observed, ratio_on)
+        + _xlogy(m_observed, ratio_off)
+        - (n_observed + m_observed)
+        + s
+        + (1.0 + tau) * background_profile
+    )
+
+    negative_mean = (mean_on < 0.0) | (mean_off < 0.0)
+    if np.any(negative_mean):
+        delta_log_likelihood = np.asarray(delta_log_likelihood, dtype=float)
+        delta_log_likelihood[negative_mean] = np.nan
+
+    return delta_log_likelihood
 
 
 def r_stat_onoff(s, n, m, tau):
-    """Signed LR root: r(s) = sign(s_hat - s)*sqrt(2*Δℓ(s)), with s_hat = n - m/tau."""
-    shat = np.asarray(n, dtype=float) - np.asarray(m, dtype=float) / np.asarray(tau, dtype=float)
-    dll = np.maximum(loglik_diff(s, n, m, tau), 0.0)
-    return np.sign(shat - s) * np.sqrt(2.0 * dll)
+    """Signed likelihood root ``sign(s_hat-s) sqrt(2 Delta ell(s))``."""
+    signal_hat = (
+        np.asarray(n, dtype=float)
+        - np.asarray(m, dtype=float) / np.asarray(tau, dtype=float)
+    )
+    delta_log_likelihood = np.maximum(loglik_diff(s, n, m, tau), 0.0)
+    return np.sign(signal_hat - s) * np.sqrt(2.0 * delta_log_likelihood)
 
 
 def u_stat_onoff(s, n, m, tau):
-    """Closed-form auxiliary statistic u(s) for one on/off observation."""
+    """Closed-form higher-order auxiliary statistic ``u(s)``.
+
+    With ``b_tilde=b_profiled(s)`` and the two profiled means, the expression
+    implemented below is
+
+        sqrt(n m) / sqrt(n/mu_on^2 + m/b_tilde^2)
+        * [log(n/mu_on)/b_tilde - log(m/mu_off)/mu_on].
+
+    At ``n=0`` or ``m=0``, its continuous endpoint value is zero because
+    ``sqrt(x) log(x) -> 0``.
+    """
     s = float(s)
     n = float(n)
     m = float(m)
@@ -91,24 +154,30 @@ def u_stat_onoff(s, n, m, tau):
     if n <= 0.0 or m <= 0.0:
         return 0.0
 
-    btilde = float(b_profiled(s, n, m, tau))
-    mu_on = s + btilde
-    mu_off = tau * btilde
+    background_profile = float(b_profiled(s, n, m, tau))
+    mean_on = s + background_profile
+    mean_off = tau * background_profile
 
-    if mu_on <= 0.0 or mu_off <= 0.0 or btilde <= 0.0:
+    if mean_on <= 0.0 or mean_off <= 0.0 or background_profile <= 0.0:
         return float("nan")
 
     numerator = math.sqrt(n * m)
-    denominator = math.sqrt(n / mu_on**2 + m / btilde**2)
-    log_terms = math.log(n / mu_on) / btilde - math.log(m / mu_off) / mu_on
+    denominator = math.sqrt(n / mean_on**2 + m / background_profile**2)
+    log_terms = (
+        math.log(n / mean_on) / background_profile
+        - math.log(m / mean_off) / mean_on
+    )
 
     return numerator * log_terms / denominator
 
 
 def r_star_onoff(s, n, m, tau):
-    """
-    Modified root:
-        r*(s) = r(s) + (1/r(s)) * log|u(s) / r(s)|.
+    """Higher-order root ``r*(s) = r + log|u/r| / r``.
+
+    At ``n=0`` or ``m=0`` the logarithmic adjustment is undefined and the
+    boundary prescription is ``r*=r``.  At ``s=s_hat`` the analytic limit is
+
+        (n tau^3 - m) / [6 (m + n tau^2)^(3/2)].
     """
     s = float(s)
     n = float(n)
@@ -139,12 +208,15 @@ def r_star_onoff(s, n, m, tau):
     return r + math.log(abs(u / r)) / r
 
 
-def sample_null_toys(s, b, tau, n_toys, seed=None):
+# Reference distributions and Monte Carlo
+
+
+def _sample_null_toys(s, b, tau, n_toys, seed=None):
     """Generate toys under H0: N~Pois(s+b), M~Pois(tau*b)."""
     rng = np.random.default_rng(seed)
-    N = rng.poisson(lam=s + b, size=n_toys)
-    M = rng.poisson(lam=tau * b, size=n_toys)
-    return N, M
+    n_toys_observed = rng.poisson(lam=s + b, size=n_toys)
+    m_toys_observed = rng.poisson(lam=tau * b, size=n_toys)
+    return n_toys_observed, m_toys_observed
 
 
 def required_toys_for_Z_precision(
@@ -152,7 +224,7 @@ def required_toys_for_Z_precision(
     sigrel: float = 0.05,
     min_toys: int = 10_000,
     max_toys: int = 2_000_000,
-) -> Tuple[int, bool]:
+) -> tuple[int, bool]:
     """
     Estimate N so that the MC-based Z has relative uncertainty ≤ sigrel.
 
@@ -171,29 +243,27 @@ def required_toys_for_Z_precision(
     if sigrel <= 0.0:
         raise ValueError("sigrel must be positive")
 
-    if max_toys < 1:
-        max_toys = 1
-    if min_toys < 1:
-        min_toys = 1
+    if min_toys < 1 or max_toys < 1:
+        raise ValueError("min_toys and max_toys must be positive")
     if min_toys > max_toys:
-        min_toys = max_toys
+        raise ValueError("min_toys must not exceed max_toys")
 
-    Z = float(discovery_z(r_obs))
+    z_value = float(discovery_z(r_obs))
     # Relative precision is not defined at Z=0, where there is no discovery.
-    if Z <= 0.0:
+    if z_value <= 0.0:
         return min_toys, False
-    if not np.isfinite(Z):
+    if not np.isfinite(z_value):
         return max_toys, True
 
-    p = float(norm_survival(Z))
-    phi = float(norm.pdf(Z))
+    p = float(norm_survival(z_value))
+    phi = float(norm.pdf(z_value))
     if (not np.isfinite(p)) or p <= 0.0 or p >= 1.0:
         return max_toys, True
     if (not np.isfinite(phi)) or phi <= 0.0:
         return max_toys, True
 
     numerator = p * (1.0 - p)
-    denominator = sigrel**2 * Z**2 * phi**2
+    denominator = sigrel**2 * z_value**2 * phi**2
     if denominator <= 0.0:
         return max_toys, True
 
@@ -225,19 +295,28 @@ def _poisson_grid_max(mu: float, observed: int = 0, tail_mass: float = 1e-12) ->
 
 def pvals_onoff_profile_sum(
     s,
-    tau,
     n,
     m,
+    tau,
     tail_mass: float = 1e-12,
 ) -> dict:
-    """Compute the deterministic profiled-null reference and asymptotic p-values."""
-    r_ref = float(r_stat_onoff(s, n, m, tau))
-    rstar_obs = float(r_star_onoff(s, n, m, tau))
+    """Return the profiled-reference and asymptotic discovery p-values.
 
-    p_r = float(discovery_pvalue(r_ref))
-    p_rstar = float(discovery_pvalue(rstar_obs))
+    The deterministic reference plugs the fitted background into the null
+    model and sums the inclusive tail ``r_toy >= r_obs``.  Each Poisson grid
+    omits at most ``tail_mass`` probability; ``p_ref_se`` is zero because no
+    Monte Carlo sampling is involved.
+    """
+    if not 0.0 < tail_mass < 1.0:
+        raise ValueError("tail_mass must lie between zero and one")
 
-    if r_ref <= 0.0:
+    r_observed = float(r_stat_onoff(s, n, m, tau))
+    rstar_observed = float(r_star_onoff(s, n, m, tau))
+
+    p_r = float(discovery_pvalue(r_observed))
+    p_rstar = float(discovery_pvalue(rstar_observed))
+
+    if r_observed <= 0.0:
         return {
             "p_ref": 0.5,
             "p_ref_se": 0.0,
@@ -245,19 +324,23 @@ def pvals_onoff_profile_sum(
             "p_rstar": p_rstar,
         }
 
-    b_tilde = float(b_profiled(s, n, m, tau))
-    mu_n = float(s + b_tilde)
-    mu_m = float(tau * b_tilde)
+    background_profile = float(b_profiled(s, n, m, tau))
+    mean_on = float(s + background_profile)
+    mean_off = float(tau * background_profile)
 
-    n_grid = np.arange(_poisson_grid_max(mu_n, observed=n, tail_mass=tail_mass) + 1)
-    m_grid = np.arange(_poisson_grid_max(mu_m, observed=m, tail_mass=tail_mass) + 1)
-    p_n = poisson.pmf(n_grid, mu_n)
-    p_m = poisson.pmf(m_grid, mu_m)
+    n_grid = np.arange(
+        _poisson_grid_max(mean_on, observed=n, tail_mass=tail_mass) + 1
+    )
+    m_grid = np.arange(
+        _poisson_grid_max(mean_off, observed=m, tail_mass=tail_mass) + 1
+    )
+    probability_n = poisson.pmf(n_grid, mean_on)
+    probability_m = poisson.pmf(m_grid, mean_off)
 
-    nn, mm = np.meshgrid(n_grid, m_grid, indexing="ij")
-    r_grid = r_stat_onoff(s, nn, mm, tau)
-    probabilities = p_n[:, None] * p_m[None, :]
-    p_ref = float(np.sum(probabilities[r_grid >= r_ref]))
+    toy_n, toy_m = np.meshgrid(n_grid, m_grid, indexing="ij")
+    r_grid = r_stat_onoff(s, toy_n, toy_m, tau)
+    probabilities = probability_n[:, None] * probability_m[None, :]
+    p_ref = float(np.sum(probabilities[r_grid >= r_observed]))
 
     return {
         "p_ref": min(p_ref, 0.5),
@@ -267,69 +350,76 @@ def pvals_onoff_profile_sum(
     }
 
 
-# Unified function to compute p-values using r, r*, and MC simulations
 def pvals_onoff(
     s,
-    tau,
     n,
     m,
+    tau,
     sigrel: float = 0.05,
     min_toys: int = 10_000,
     max_toys: int = 2_000_000,
     seed: int = 12345,
 ) -> dict:
     """
-    Compute p-values for observed (n,m) testing s.
+    Compute Monte Carlo and asymptotic p-values for observed ``(n, m)``.
 
-    The MC result includes the generated toy count, the number of tail
-    exceedances, and the resolution of the corrected p-value estimate.
+    ``p_mc=(K+1)/(N+1)`` is the corrected MC estimate, capped at 0.5 for the
+    discovery test; ``p_mc_raw=K/N`` is retained for diagnostics.  The result
+    also contains ``n_toys`` (N), ``n_exceedances`` (K), the profiled
+    background, p-value resolution, MC standard error and precision-limit flag.
     """
 
     # Compute the observed test statistics and their Gaussian p-values.
-    r_ref = float(r_stat_onoff(s, n, m, tau))
-    rstar_obs = float(r_star_onoff(s, n, m, tau))
+    r_observed = float(r_stat_onoff(s, n, m, tau))
+    rstar_observed = float(r_star_onoff(s, n, m, tau))
 
-    p_r = float(discovery_pvalue(r_ref))
-    p_rs = float(discovery_pvalue(rstar_obs))
+    p_r = float(discovery_pvalue(r_observed))
+    p_rstar = float(discovery_pvalue(rstar_observed))
 
     # Profile the background under the signal hypothesis being tested.
-    b_tilde = float(b_profiled(s, n, m, tau))
+    background_profile = float(b_profiled(s, n, m, tau))
 
     # Choose enough toys to reach the target relative precision on Z.
     n_toys, precision_limited = required_toys_for_Z_precision(
-        r_ref,
+        r_observed,
         sigrel=sigrel,
         min_toys=min_toys,
         max_toys=max_toys,
     )
 
     # Generate toys under the null using the profiled background.
-    toys_N, toys_M = sample_null_toys(s, b_tilde, tau, n_toys=n_toys, seed=seed)
-    r_toys = r_stat_onoff(s, toys_N, toys_M, tau)
+    toy_n, toy_m = _sample_null_toys(
+        s,
+        background_profile,
+        tau,
+        n_toys=n_toys,
+        seed=seed,
+    )
+    r_toys = r_stat_onoff(s, toy_n, toy_m, tau)
 
     # Count toys in the observed-or-more-extreme discovery tail.
-    n_exceedances = int(np.count_nonzero(r_toys >= r_ref))
+    n_exceedances = int(np.count_nonzero(r_toys >= r_observed))
     p_mc_raw = n_exceedances / n_toys
     p_mc_corrected = (n_exceedances + 1.0) / (n_toys + 1.0)
 
-    if r_ref <= 0.0:
+    if r_observed <= 0.0:
         p_mc = 0.5
     else:
         p_mc = min(p_mc_corrected, 0.5)
 
-    var_p = p_mc_corrected * (1.0 - p_mc_corrected) / n_toys
-    se_mc = float(math.sqrt(var_p))
+    p_variance = p_mc_corrected * (1.0 - p_mc_corrected) / n_toys
+    p_mc_se = float(math.sqrt(p_variance))
 
     return {
         "p_mc": p_mc,
         "p_mc_raw": p_mc_raw,
-        "p_mc_se": se_mc,
+        "p_mc_se": p_mc_se,
         "p_resolution": 1.0 / (n_toys + 1.0),
         "p_r": p_r,
-        "p_rstar": p_rs,
+        "p_rstar": p_rstar,
         "n_toys": n_toys,
         "n_exceedances": n_exceedances,
-        "b_profiled": b_tilde,
+        "b_profiled": background_profile,
         "precision_limited": precision_limited,
     }
 
@@ -342,40 +432,38 @@ def asimov_Zs_onoff(
     """
     Asimov discovery Z-values for testing s = 0 in the on/off problem.
 
-    Steps:
-      1. Build Asimov (expected) counts under the true model (s_true, b, τ):
-           n_A = s_true + b          (on region)
-           m_A = τ * b               (off region)
-      2. Evaluate r(0) and r*(0) at (n_A, m_A) to get the Asimov Z-values.
+    The Asimov counts are ``n_A=s_true+b`` and ``m_A=tau*b``.  The returned
+    dictionary contains ``Z_A_r`` and ``Z_A_rstar`` for a test of ``s=0``.
     """
-    nA = float(s_true + b)  # on-region expected count
-    mA = float(tau * b)     # off-region expected count
+    n_asimov = float(s_true + b)
+    m_asimov = float(tau * b)
 
     # First compute the signed roots, then apply the discovery definition.
     r_asimov = r_stat_onoff(
         0.0,
-        nA,
-        mA,
+        n_asimov,
+        m_asimov,
         tau,
     )
     rstar_asimov = r_star_onoff(
         0.0,
-        nA,
-        mA,
+        n_asimov,
+        m_asimov,
         tau,
     )
     z_r = float(discovery_z(r_asimov))
-    z_rss = float(discovery_z(rstar_asimov))
+    z_rstar = float(discovery_z(rstar_asimov))
 
     return {
         "Z_A_r": z_r,
-        "Z_A_rstar": z_rss,
-        "nA": nA,
-        "mA": mA,
+        "Z_A_rstar": z_rstar,
     }
 
 
-def median_expected_significance_onoff(
+# Expected significance
+
+
+def _mc_significance_summary_onoff(
     s_true,
     b,
     tau,
@@ -385,15 +473,18 @@ def median_expected_significance_onoff(
     max_toys: int = 2_000_000,
     seed: int = 12345,
 ):
-    """Two-level MC: outer toys for data, inner toys for p-value."""
+    """Return median and mean Z from outer data toys and inner null toys."""
+    if n_outer <= 0:
+        raise ValueError("n_outer must be positive")
+
     rng = np.random.default_rng(seed)
 
-    Ns = rng.poisson(lam=s_true + b, size=n_outer)
-    Ms = rng.poisson(lam=tau * b, size=n_outer)
+    n_observed = rng.poisson(lam=s_true + b, size=n_outer)
+    m_observed = rng.poisson(lam=tau * b, size=n_outer)
 
     p_mc = np.empty(n_outer, dtype=float)
 
-    for i, (n_obs, m_obs) in enumerate(zip(Ns, Ms)):
+    for i, (n_obs, m_obs) in enumerate(zip(n_observed, m_observed)):
         inner_seed = int(rng.integers(1, 2**31 - 1))
 
         out = pvals_onoff(
@@ -409,9 +500,9 @@ def median_expected_significance_onoff(
 
         p_mc[i] = float(out["p_mc"])
 
-    Z = norm.isf(p_mc)
+    z_values = norm.isf(p_mc)
 
-    return float(np.median(Z)), float(np.mean(Z))
+    return float(np.median(z_values)), float(np.mean(z_values))
 
 
 def expected_significance_onoff(
@@ -427,7 +518,9 @@ def expected_significance_onoff(
     """
     Compute Asimov and MC expected significances for H0:s=0.
 
-    Accepts scalars or array-like s_true, b, tau (broadcasted); returns dict of arrays.
+    ``s_true``, ``b`` and ``tau`` may be scalars or broadcastable arrays.  The
+    keys ``Z_A_r``, ``Z_A_rstar``, ``Z_mc_median`` and ``Z_mc_mean`` all have
+    their broadcast shape.
     """
     s_arr, b_arr, tau_arr = np.broadcast_arrays(
         np.asarray(s_true, dtype=float),
@@ -440,10 +533,10 @@ def expected_significance_onoff(
 
     rng = np.random.default_rng(seed)
 
-    Z_A_r = np.empty_like(flat_s, dtype=float)
-    Z_A_rstar = np.empty_like(flat_s, dtype=float)
-    Z_mc_median = np.empty_like(flat_s, dtype=float)
-    Z_mc_mean = np.empty_like(flat_s, dtype=float)
+    z_asimov_r = np.empty_like(flat_s, dtype=float)
+    z_asimov_rstar = np.empty_like(flat_s, dtype=float)
+    z_mc_median = np.empty_like(flat_s, dtype=float)
+    z_mc_mean = np.empty_like(flat_s, dtype=float)
 
     for i, (s_val, b_val, tau_val) in enumerate(zip(flat_s, flat_b, flat_tau)):
         asim = asimov_Zs_onoff(
@@ -451,7 +544,7 @@ def expected_significance_onoff(
             float(b_val),
             float(tau_val),
         )
-        mc_median, mc_mean = median_expected_significance_onoff(
+        mc_median, mc_mean = _mc_significance_summary_onoff(
             float(s_val),
             float(b_val),
             float(tau_val),
@@ -461,33 +554,29 @@ def expected_significance_onoff(
             max_toys=max_toys,
             seed=int(rng.integers(1, 2**31 - 1)),
         )
-        Z_A_r[i] = asim["Z_A_r"]
-        Z_A_rstar[i] = asim["Z_A_rstar"]
-        Z_mc_median[i] = mc_median
-        Z_mc_mean[i] = mc_mean
+        z_asimov_r[i] = asim["Z_A_r"]
+        z_asimov_rstar[i] = asim["Z_A_rstar"]
+        z_mc_median[i] = mc_median
+        z_mc_mean[i] = mc_mean
 
     shape = s_arr.shape
     return {
-        "Z_A_r": Z_A_r.reshape(shape),
-        "Z_A_rstar": Z_A_rstar.reshape(shape),
-        "Z_mc_median": Z_mc_median.reshape(shape),
-        "Z_mc_mean": Z_mc_mean.reshape(shape),
+        "Z_A_r": z_asimov_r.reshape(shape),
+        "Z_A_rstar": z_asimov_rstar.reshape(shape),
+        "Z_mc_median": z_mc_median.reshape(shape),
+        "Z_mc_mean": z_mc_mean.reshape(shape),
     }
 
 
 __all__ = [
-    "norm_survival",
-    "xlogy",
     "b_profiled",
     "loglik_diff",
     "r_stat_onoff",
     "u_stat_onoff",
     "r_star_onoff",
-    "sample_null_toys",
     "required_toys_for_Z_precision",
     "pvals_onoff_profile_sum",
     "pvals_onoff",
     "asimov_Zs_onoff",
-    "median_expected_significance_onoff",
     "expected_significance_onoff",
 ]

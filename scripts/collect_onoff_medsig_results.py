@@ -5,14 +5,12 @@ import argparse
 import hashlib
 import json
 import math
-import platform
 import re
 import subprocess
 import sys
 from pathlib import Path
 
 import numpy as np
-import scipy
 import yaml
 from scipy.stats import norm
 
@@ -23,7 +21,7 @@ if str(ROOT) not in sys.path:
 
 from scripts.make_onoff_medsig_plots import (  # noqa: E402
     configure_plot_style,
-    mask_mc_at_display_max,
+    mask_mc_for_display,
     write_median_significance_pdfs,
 )
 from src.on_off import (  # noqa: E402
@@ -112,7 +110,7 @@ def load_config(path):
     return config
 
 
-def format_signal_tag(s_true):
+def signal_tag(s_true):
     value = (
         f"{float(s_true):g}"
         .replace("-", "m")
@@ -225,16 +223,16 @@ def read_batch_settings(config):
         if max_toys < min_toys:
             raise ValueError("Each max_toys value must be at least batch_mc.min_toys")
 
-        signal_tag = format_signal_tag(s_true)
-        if signal_tag in tags:
-            raise ValueError(f"Duplicate signal tag: {signal_tag}")
-        tags.add(signal_tag)
+        tag = signal_tag(s_true)
+        if tag in tags:
+            raise ValueError(f"Duplicate signal tag: {tag}")
+        tags.add(tag)
 
         jobs.append(
             {
                 "signal_index": signal_index,
                 "s_true": float(s_true),
-                "signal_tag": signal_tag,
+                "signal_tag": tag,
                 "n_jobs": n_jobs,
                 "outer_per_job": outer_per_job,
                 "max_toys": max_toys,
@@ -409,6 +407,7 @@ def validate_point(point, expected, job):
 
 
 def expected_points_for_job(settings, job, job_id):
+    """Replay the worker RNG independently to validate counts and scan order."""
     expected = {}
     rng_outer = np.random.default_rng(job["outer_seed"] + job_id)
     rng_inner = np.random.default_rng(job["inner_seed"] + job_id)
@@ -452,7 +451,6 @@ def validate_provenance(
     source_hash,
     job,
     job_id,
-    n_outer,
 ):
     expected = {
         "run": run_name,
@@ -462,16 +460,6 @@ def validate_provenance(
         "signal_index": job["signal_index"],
         "s_true": job["s_true"],
         "job_id": job_id,
-        "n_jobs": job["n_jobs"],
-        "n_outer": n_outer,
-        "outer_per_job": job["outer_per_job"],
-        "outer_seed_base": job["outer_seed"],
-        "inner_seed_base": job["inner_seed"],
-        "outer_stream_seed": job["outer_seed"] + job_id,
-        "inner_stream_seed": job["inner_seed"] + job_id,
-        "python_version": platform.python_version(),
-        "numpy_version": np.__version__,
-        "scipy_version": scipy.__version__,
     }
     for key, value in expected.items():
         if provenance.get(key) != value:
@@ -506,10 +494,7 @@ def validate_result_file(
         source_hash,
         job,
         job_id,
-        settings["n_outer"],
     )
-    if provenance.get("expected_points") != len(expected_points):
-        raise ValueError(f"Incorrect expected_points in {result_path}")
 
     points = result.get("points")
     if not isinstance(points, list) or len(points) != len(expected_points):
@@ -835,7 +820,7 @@ def main():
     print_diagnostics(settings, diagnostics)
 
     results = build_plot_results(groups, settings)
-    mask_mc_at_display_max(results, z_display_max)
+    results = mask_mc_for_display(results, z_display_max)
 
     configure_plot_style()
     write_median_significance_pdfs(

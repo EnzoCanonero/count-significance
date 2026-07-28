@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Generate the on/off observed-significance paper plots."""
+
 import argparse
 import sys
 from collections import defaultdict
@@ -66,12 +68,32 @@ def _add_stat_and_m_legends(
 ):
     stat_handles = []
     if "r" in statistics:
-        stat_handles.append(Line2D([0], [0], color="0.15", marker="o", ls="none", ms=7, label=r_label))
+        stat_handles.append(
+            Line2D(
+                [0],
+                [0],
+                color="0.15",
+                marker="o",
+                ls="none",
+                ms=7,
+                label=r_label,
+            )
+        )
     if "rstar" in statistics:
         stat_handles.append(
             Line2D([0], [0], color="0.15", marker="^", ls="none", ms=7, label=rstar_label)
         )
-    stat_handles.append(Line2D([0], [0], color="0.15", marker="x", ls="none", ms=7, label=reference_label))
+    stat_handles.append(
+        Line2D(
+            [0],
+            [0],
+            color="0.15",
+            marker="x",
+            ls="none",
+            ms=7,
+            label=reference_label,
+        )
+    )
 
     stat_legend = ax.legend(
         handles=stat_handles,
@@ -145,9 +167,6 @@ def _z_from_p(p):
 def _normalise_reference_method(reference_method: str) -> str:
     """Return the canonical reference-method name."""
     method = str(reference_method).lower()
-    # Temporary compatibility alias for older configurations.
-    if method == "exact":
-        return "profile_sum"
     if method in ("profile_sum", "mc"):
         return method
     raise ValueError(f"Unknown reference_method={reference_method!r}")
@@ -155,9 +174,9 @@ def _normalise_reference_method(reference_method: str) -> str:
 
 def _pvals_onoff_reference(
     s,
-    tau,
     n,
     m,
+    tau,
     sigrel: float,
     reference_method: str,
     reference_tail_mass: float,
@@ -166,18 +185,18 @@ def _pvals_onoff_reference(
 
     if reference_method == "profile_sum":
         return pvals_onoff_profile_sum(
-            s,
-            tau,
-            n,
-            m,
+            s=s,
+            n=n,
+            m=m,
+            tau=tau,
             tail_mass=reference_tail_mass,
         )
     if reference_method == "mc":
         mc_result = pvals_onoff(
-            s,
-            tau,
-            n,
-            m,
+            s=s,
+            n=n,
+            m=m,
+            tau=tau,
             sigrel=sigrel,
         )
         return {
@@ -240,10 +259,10 @@ def compute_pvalue_scans(
 
         while n0 <= stop_n:
             out = _pvals_onoff_reference(
-                s0,
-                tau,
-                n0,
-                int(m0),
+                s=s0,
+                n=n0,
+                m=int(m0),
+                tau=tau,
                 sigrel=sigrel,
                 reference_method=reference_method,
                 reference_tail_mass=reference_tail_mass,
@@ -312,9 +331,23 @@ def write_pvalue_pdf(
                 n_hi = max(n_hi, int(n_vals[-1]))
 
                 if "r" in statistics:
-                    ax.semilogy(n_vals, result["p_r"], marker="o", linestyle="None", ms=5, color=color)
+                    ax.semilogy(
+                        n_vals,
+                        result["p_r"],
+                        marker="o",
+                        linestyle="None",
+                        ms=5,
+                        color=color,
+                    )
                 if "rstar" in statistics:
-                    ax.semilogy(n_vals, result["p_rstar"], marker="^", linestyle="None", ms=5, color=color)
+                    ax.semilogy(
+                        n_vals,
+                        result["p_rstar"],
+                        marker="^",
+                        linestyle="None",
+                        ms=5,
+                        color=color,
+                    )
                 ax.errorbar(
                     n_vals,
                     result["p_ref"],

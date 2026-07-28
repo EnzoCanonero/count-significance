@@ -1,17 +1,30 @@
+"""Known-background Poisson counting model.
+
+The model is N ~ Pois(s + b), with known background b.  The signed roots
+``r(s0)`` and ``r*(s0)`` test a signal value ``s0``.  Discovery results use
+``Z = max(0, r)`` (and the same convention with ``r*``).
+"""
+
 import math
+
 import numpy as np
-from scipy.stats import poisson, norm
+from scipy.stats import norm, poisson
 
-from .common import discovery_pvalue, discovery_z, norm_survival
+from .common import discovery_pvalue, discovery_z
 
-def _correct_count(n, continuity_correction: bool):
-    n_arr = np.asarray(n, dtype=float)
+
+# Likelihood and signed roots
+
+
+def _correct_count(n: float, continuity_correction: bool) -> float:
+    """Return the observed count, optionally shifted by the continuity correction."""
+    n_effective = float(n)
     if continuity_correction:
-        n_arr = np.maximum(n_arr - 0.5, 0.0)
-    return float(n_arr) if n_arr.shape == () else n_arr
+        n_effective = max(n_effective - 0.5, 0.0)
+    return n_effective
 
 
-def poisson_tail_on(s0: float, b: float, n) -> np.ndarray:
+def poisson_tail_on(s0: float, b: float, n):
     """
     Upward tail P[N >= n | mu0] with mu0 = s0 + b.
     Uses scipy's exact Poisson SF; supports array n.
@@ -21,8 +34,17 @@ def poisson_tail_on(s0: float, b: float, n) -> np.ndarray:
     return poisson.sf(np.asarray(n) - 1, mu0)
 
 
-def r_stat_on(s0: float, b: float, n: float, continuity_correction: bool = False) -> float:
-    """Signed root likelihood ratio r(s0) for testing s = s0."""
+def r_stat_on(
+    s0: float,
+    b: float,
+    n: float,
+    continuity_correction: bool = False,
+) -> float:
+    """Signed likelihood root for testing ``s=s0``.
+
+    With ``mu0=s0+b``, this is
+    ``sign(n-mu0) sqrt(2 [n log(n/mu0) - (n-mu0)])``.
+    """
     n = _correct_count(n, continuity_correction)
     mu0 = s0 + b
     if mu0 <= 0.0:
@@ -32,15 +54,20 @@ def r_stat_on(s0: float, b: float, n: float, continuity_correction: bool = False
     else:
         term = n * math.log(n / mu0)
 
-    W = 2.0 * (term - (n - mu0))
-    if W < 0.0:
-        W = 0.0
+    likelihood_ratio = 2.0 * (term - (n - mu0))
+    if likelihood_ratio < 0.0:
+        likelihood_ratio = 0.0
 
-    sgn = 1.0 if n >= mu0 else -1.0
-    return sgn * math.sqrt(W)
+    sign = 1.0 if n >= mu0 else -1.0
+    return sign * math.sqrt(likelihood_ratio)
 
 
-def u_stat_on(s0: float, b: float, n: float, continuity_correction: bool = False) -> float:
+def u_stat_on(
+    s0: float,
+    b: float,
+    n: float,
+    continuity_correction: bool = False,
+) -> float:
     """u(s0) = sqrt(n) * log(n / mu0), with mu0 = s0 + b."""
     n = _correct_count(n, continuity_correction)
     if n == 0:
@@ -53,9 +80,17 @@ def u_stat_on(s0: float, b: float, n: float, continuity_correction: bool = False
     return math.sqrt(n) * math.log(n / mu0)
 
 
-def r_star_on(s0: float, b: float, n: float, continuity_correction: bool = True) -> float:
-    """
-    Barndorff–Nielsen / Lugannani–Rice corrected root.
+def r_star_on(
+    s0: float,
+    b: float,
+    n: float,
+    continuity_correction: bool = True,
+) -> float:
+    """Higher-order root r*(s0), with the paper's endpoint prescriptions.
+
+    Away from the endpoints, ``r*=r+log|u/r|/r``.
+    At an empty sample the logarithmic adjustment is undefined and ``r*=r``.
+    At ``n=s0+b``, its analytic limit is ``1 / (6 sqrt(s0+b))``.
     """
     n_eff = _correct_count(n, continuity_correction)
     mu0 = s0 + b
@@ -94,44 +129,56 @@ def pvals_on(
     """
     Vectorized p-values for observed counts n in the simple on-channel model.
 
-    Accepts scalar or array-like n; returns arrays for exact and asymptotic p-values.
+    ``p_exact`` is the inclusive Poisson tail, while ``p_r`` and ``p_rstar``
+    are the Gaussian approximations.  All three apply the discovery cap
+    ``p <= 0.5`` and are returned as arrays.
     """
     n_arr = np.asarray(n, dtype=float)
-    p_true = np.minimum(poisson_tail_on(s0, b, n_arr), 0.5)
+    p_exact = np.minimum(poisson_tail_on(s0, b, n_arr), 0.5)
 
-    r_vals = np.vectorize(r_stat_on)(s0, b, n_arr, continuity_correction_r)
+    r_vals = np.vectorize(r_stat_on, otypes=[float])(
+        s0,
+        b,
+        n_arr,
+        continuity_correction_r,
+    )
     p_r = discovery_pvalue(r_vals)
 
-    rstar_vals = np.vectorize(r_star_on)(s0, b, n_arr, continuity_correction_rstar)
+    rstar_vals = np.vectorize(r_star_on, otypes=[float])(
+        s0,
+        b,
+        n_arr,
+        continuity_correction_rstar,
+    )
     p_rstar = discovery_pvalue(rstar_vals)
 
     return {
-        "p_true": np.asarray(p_true, dtype=float),
+        "p_exact": np.asarray(p_exact, dtype=float),
         "p_r": np.asarray(p_r, dtype=float),
         "p_rstar": np.asarray(p_rstar, dtype=float),
     }
 
 
-def median_expected_significance_on(
+# Expected significance
+
+
+def _mc_significance_summary_on(
     s_true: float,
     b: float,
     n_outer: int = 200,
     seed: int = 12345,
-) -> float:
-    """
-    MC median expected discovery Z:
-      - Generate n_outer toys n_obs ~ Pois(s_true + b)
-      - Compute p_tail under H0: s=0 (so mu0=b) for each toy
-      - Convert each p to Z via norm.isf
-      - Return median(Z)
-    """
+) -> tuple[float, float]:
+    """Return the median and mean discovery significance from outer toys."""
+    if n_outer <= 0:
+        raise ValueError("n_outer must be positive")
+
     rng = np.random.default_rng(seed)
     n_obs = rng.poisson(lam=s_true + b, size=n_outer)
 
     p_tail = poisson_tail_on(s0=0.0, b=b, n=n_obs)
     p_tail = np.minimum(p_tail, 0.5)
-    Z = norm.isf(p_tail)
-    return float(np.median(Z)), float(np.mean(Z))
+    z_values = norm.isf(p_tail)
+    return float(np.median(z_values)), float(np.mean(z_values))
 
 
 def expected_significance_on(
@@ -145,36 +192,43 @@ def expected_significance_on(
     """
     Vectorized expected discovery Z for the on-channel model.
 
-    Returns Asimov Z (r, r*) and MC median Z; accepts scalars or array-like s_true and b.
+    Return Asimov Z values and the median and mean Z from Monte Carlo toys.
+
+    ``s_true`` and ``b`` may be scalars or broadcastable arrays.  The keys
+    ``Z_A_r``, ``Z_A_rstar``, ``Z_mc_median`` and ``Z_mc_mean`` all have their
+    broadcast shape.
     """
-    s_arr, b_arr = np.broadcast_arrays(np.asarray(s_true, dtype=float), np.asarray(b, dtype=float))
+    s_arr, b_arr = np.broadcast_arrays(
+        np.asarray(s_true, dtype=float),
+        np.asarray(b, dtype=float),
+    )
     flat_s = s_arr.ravel()
     flat_b = b_arr.ravel()
 
     rng = np.random.default_rng(seed)
     medians = np.empty_like(flat_s, dtype=float)
     means = np.empty_like(flat_s, dtype=float)
-    Z_A_r = np.empty_like(flat_s, dtype=float)
-    Z_A_rstar = np.empty_like(flat_s, dtype=float)
+    z_asimov_r = np.empty_like(flat_s, dtype=float)
+    z_asimov_rstar = np.empty_like(flat_s, dtype=float)
 
     for i, (s_val, b_val) in enumerate(zip(flat_s, flat_b)):
-        nA = float(s_val + b_val)
+        n_asimov = float(s_val + b_val)
         r_asimov = r_stat_on(
             0.0,
             b_val,
-            nA,
+            n_asimov,
             continuity_correction=continuity_correction_r,
         )
         rstar_asimov = r_star_on(
             0.0,
             b_val,
-            nA,
+            n_asimov,
             continuity_correction=continuity_correction_rstar,
         )
-        Z_A_r[i] = discovery_z(r_asimov)
-        Z_A_rstar[i] = discovery_z(rstar_asimov)
+        z_asimov_r[i] = discovery_z(r_asimov)
+        z_asimov_rstar[i] = discovery_z(rstar_asimov)
 
-        medians[i], means[i] = median_expected_significance_on(
+        medians[i], means[i] = _mc_significance_summary_on(
             s_true=float(s_val),
             b=float(b_val),
             n_outer=n_outer,
@@ -182,8 +236,8 @@ def expected_significance_on(
         )
 
     return {
-        "Z_A_r": Z_A_r.reshape(s_arr.shape),
-        "Z_A_rstar": Z_A_rstar.reshape(s_arr.shape),
+        "Z_A_r": z_asimov_r.reshape(s_arr.shape),
+        "Z_A_rstar": z_asimov_rstar.reshape(s_arr.shape),
         "Z_mc_median": medians.reshape(s_arr.shape),
         "Z_mc_mean": means.reshape(s_arr.shape),
     }
@@ -193,9 +247,7 @@ __all__ = [
     "poisson_tail_on",
     "r_stat_on",
     "u_stat_on",
-    "norm_survival",
     "r_star_on",
     "pvals_on",
-    "median_expected_significance_on",
     "expected_significance_on",
 ]
