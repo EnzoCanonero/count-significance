@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.common import load_yaml
+from src.common import discovery_pvalue, load_yaml
 from src.on_off import b_profiled, pvals_onoff, r_star_onoff, r_stat_onoff
 
 
@@ -190,8 +190,8 @@ def _pvals_onoff_exact(
     r_obs = float(r_stat_onoff(s, n, m, tau, continuity_correction=continuity_correction_r))
     rs_obs = float(r_star_onoff(s, n, m, tau, continuity_correction=continuity_correction_rstar))
 
-    p_r = float(norm.sf(max(r_obs, 0.0)))
-    p_rs = float(norm.sf(max(rs_obs, 0.0)))
+    p_r = float(discovery_pvalue(r_obs))
+    p_rs = float(discovery_pvalue(rs_obs))
 
     if r_ref <= 0.0:
         return {

@@ -22,4 +22,28 @@ def norm_survival(x):
     return 0.5 * erfc(arr / np.sqrt(2.0))
 
 
-__all__ = ["load_yaml", "ensure_dir", "norm_survival"]
+def discovery_z(r):
+    """Discovery significance Z = max(0, r)."""
+    return np.maximum(r, 0.0)
+
+
+def discovery_q0(r):
+    """Discovery test statistic q0 = Z^2, with Z = max(0, r)."""
+    z = discovery_z(r)
+    return z**2
+
+
+def discovery_pvalue(r):
+    """One-sided discovery p-value p0 = 1 - Phi(Z)."""
+    z = discovery_z(r)
+    return norm_survival(z)
+
+
+__all__ = [
+    "load_yaml",
+    "ensure_dir",
+    "norm_survival",
+    "discovery_z",
+    "discovery_q0",
+    "discovery_pvalue",
+]

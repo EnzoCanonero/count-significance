@@ -2,7 +2,7 @@ import math
 import numpy as np
 from scipy.stats import poisson, norm
 
-from .common import norm_survival
+from .common import discovery_pvalue, discovery_z, norm_survival
 
 def _correct_count(n, continuity_correction: bool):
     n_arr = np.asarray(n, dtype=float)
@@ -79,10 +79,10 @@ def pvals_on(
     p_true = np.minimum(poisson_tail_on(s0, b, n_arr), 0.5)
 
     r_vals = np.vectorize(r_stat_on)(s0, b, n_arr, continuity_correction_r)
-    p_r = norm_survival(np.maximum(r_vals, 0.0))
+    p_r = discovery_pvalue(r_vals)
 
     rstar_vals = np.vectorize(r_star_on)(s0, b, n_arr, continuity_correction_rstar)
-    p_rstar = norm_survival(np.maximum(rstar_vals, 0.0))
+    p_rstar = discovery_pvalue(rstar_vals)
 
     return {
         "p_true": np.asarray(p_true, dtype=float),
@@ -139,11 +139,21 @@ def expected_significance_on(
 
     for i, (s_val, b_val) in enumerate(zip(flat_s, flat_b)):
         nA = float(s_val + b_val)
-        Z_A_r[i] = max(r_stat_on(0.0, b_val, nA, continuity_correction=continuity_correction_r), 0.0)
-        Z_A_rstar[i] = max(
-            r_star_on(0.0, b_val, nA, continuity_correction=continuity_correction_rstar),
+        r_asimov = r_stat_on(
             0.0,
+            b_val,
+            nA,
+            continuity_correction=continuity_correction_r,
         )
+        rstar_asimov = r_star_on(
+            0.0,
+            b_val,
+            nA,
+            continuity_correction=continuity_correction_rstar,
+        )
+        Z_A_r[i] = discovery_z(r_asimov)
+        Z_A_rstar[i] = discovery_z(rstar_asimov)
+
         medians[i], means[i] = median_expected_significance_on(
             s_true=float(s_val),
             b=float(b_val),

@@ -1,5 +1,6 @@
 # Shared statistical utilities for counting experiments.
 
+from .common import discovery_pvalue, discovery_q0, discovery_z
 from .on import (
     poisson_tail_on,
     r_stat_on,
@@ -41,6 +42,10 @@ from .lognormal import (
 )
 
 __all__ = [
+    # discovery definition
+    "discovery_z",
+    "discovery_q0",
+    "discovery_pvalue",
     # simple counting
     "poisson_tail_on",
     "r_stat_on",
