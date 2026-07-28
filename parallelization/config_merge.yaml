@@ -14,30 +14,19 @@ b_min_sig: 0.1
 b_max_sig: 100.0
 n_bpts_sig: 50
 
-# Sets the y-axis top to 5 sigma and hides MC markers whose median reaches this
-# display ceiling. The continuous approximations (Asimov q/q* and the naive
-# curve) are NOT capped: they keep their true values and run off the top margin.
-Z_ceiling: 5.0
+# Graphical cutoff only: set the y-axis maximum to 5 sigma and hide MC markers
+# at or above it. Stored results and continuous approximations are unchanged.
+Z_display_max: 5.0
 
-mc_statistics: [median]
+# Figure selection
+statistics: [r, rstar]
+mc_summaries: [median]
 
 # Input job directories (one per signal submission).
 input_dirs: ["output_s2", "output_s5", "output_s10"]
 
+# Output
 outdir: "plots_parallel"
-
-# Primary render: q + q*  -> fig 6 / 7
-asimov_statistics: [r, rstar]
-out_summary_pdf: "plots_parallel/fig6_7_onoff_asimov_qstar_bundle.pdf"
-out_combined_tau_template: "plots_parallel/fig6_onoff_asimov_qstar_tau_s{s}.pdf"
-out_combined_sigrel_template: "plots_parallel/fig7_onoff_asimov_qstar_sigrel_s{s}.pdf"
-out_grid_pdf: "plots_parallel/uncertain_background_asimov_qstar_grid.pdf"
-
-# Alternate render: q only  -> fig 2
-alternate_asimov_statistics: [r]
-alternate_out_summary_pdf: "plots_parallel/fig2_onoff_asimov_bundle.pdf"
-alternate_out_combined_tau_template: "plots_parallel/fig2_onoff_asimov_tau_s{s}.pdf"
-alternate_out_combined_sigrel_template: "plots_parallel/fig2_onoff_asimov_sigrel_s{s}.pdf"
-alternate_out_grid_pdf: "plots_parallel/uncertain_background_asimov_grid.pdf"
-
-individual_plots: False
+out_tau_template: "plots_parallel/onoff_asimov_tau_s{s}.pdf"
+out_rel_sig_template: "plots_parallel/onoff_asimov_sigrel_s{s}.pdf"
+out_grid_pdf: "plots_parallel/uncertain_background_asimov_grid.pdf"

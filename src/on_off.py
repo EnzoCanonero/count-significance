@@ -2,7 +2,7 @@ import math
 from typing import Tuple
 
 import numpy as np
-from scipy.stats import norm
+from scipy.stats import norm, poisson
 
 from .common import discovery_pvalue, discovery_z, norm_survival
 
@@ -210,10 +210,66 @@ def required_toys_for_Z_precision(
     return n_toys, precision_limited
 
 
+def _poisson_grid_max(mu: float, observed: int = 0, tail_mass: float = 1e-12) -> int:
+    """Return a finite Poisson support for a deterministic tail sum."""
+    mu = float(mu)
+    if mu <= 0.0:
+        return max(0, int(observed))
+
+    upper = poisson.ppf(1.0 - float(tail_mass), mu)
+    if not np.isfinite(upper):
+        upper = mu + 12.0 * np.sqrt(mu + 1.0) + 20.0
+
+    return max(int(np.ceil(upper)), int(observed), 0)
+
+
+def pvals_onoff_profile_sum(
+    s,
+    tau,
+    n,
+    m,
+    tail_mass: float = 1e-12,
+) -> dict:
+    """Compute the deterministic profiled-null reference and asymptotic p-values."""
+    r_ref = float(r_stat_onoff(s, n, m, tau))
+    rstar_obs = float(r_star_onoff(s, n, m, tau))
+
+    p_r = float(discovery_pvalue(r_ref))
+    p_rstar = float(discovery_pvalue(rstar_obs))
+
+    if r_ref <= 0.0:
+        return {
+            "p_ref": 0.5,
+            "p_ref_se": 0.0,
+            "p_r": p_r,
+            "p_rstar": p_rstar,
+        }
+
+    b_tilde = float(b_profiled(s, n, m, tau))
+    mu_n = float(s + b_tilde)
+    mu_m = float(tau * b_tilde)
+
+    n_grid = np.arange(_poisson_grid_max(mu_n, observed=n, tail_mass=tail_mass) + 1)
+    m_grid = np.arange(_poisson_grid_max(mu_m, observed=m, tail_mass=tail_mass) + 1)
+    p_n = poisson.pmf(n_grid, mu_n)
+    p_m = poisson.pmf(m_grid, mu_m)
+
+    nn, mm = np.meshgrid(n_grid, m_grid, indexing="ij")
+    r_grid = r_stat_onoff(s, nn, mm, tau)
+    probabilities = p_n[:, None] * p_m[None, :]
+    p_ref = float(np.sum(probabilities[r_grid >= r_ref]))
+
+    return {
+        "p_ref": min(p_ref, 0.5),
+        "p_ref_se": 0.0,
+        "p_r": p_r,
+        "p_rstar": p_rstar,
+    }
+
+
 # Unified function to compute p-values using r, r*, and MC simulations
 def pvals_onoff(
     s,
-    b,
     tau,
     n,
     m,
@@ -231,11 +287,10 @@ def pvals_onoff(
 
     # Compute the observed test statistics and their Gaussian p-values.
     r_ref = float(r_stat_onoff(s, n, m, tau))
-    r_obs = r_ref
-    rs_obs = float(r_star_onoff(s, n, m, tau))
+    rstar_obs = float(r_star_onoff(s, n, m, tau))
 
-    p_r = float(discovery_pvalue(r_obs))
-    p_rs = float(discovery_pvalue(rs_obs))
+    p_r = float(discovery_pvalue(r_ref))
+    p_rs = float(discovery_pvalue(rstar_obs))
 
     # Profile the background under the signal hypothesis being tested.
     b_tilde = float(b_profiled(s, n, m, tau))
@@ -343,7 +398,6 @@ def median_expected_significance_onoff(
 
         out = pvals_onoff(
             s=0.0,
-            b=b,
             tau=tau,
             n=int(n_obs),
             m=int(m_obs),
@@ -431,6 +485,7 @@ __all__ = [
     "r_star_onoff",
     "sample_null_toys",
     "required_toys_for_Z_precision",
+    "pvals_onoff_profile_sum",
     "pvals_onoff",
     "asimov_Zs_onoff",
     "median_expected_significance_onoff",

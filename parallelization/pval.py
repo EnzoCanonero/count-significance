@@ -70,7 +70,6 @@ def main():
 
                     out_p = pvals_onoff(
                         s=0.0,
-                        b=b,
                         tau=tau,
                         n=n_obs,
                         m=m_obs,
@@ -109,7 +108,6 @@ def main():
 
                     out_p = pvals_onoff(
                         s=0.0,
-                        b=b,
                         tau=tau_b,
                         n=n_obs,
                         m=m_obs,

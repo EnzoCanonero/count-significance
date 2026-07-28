@@ -1,4 +1,3 @@
-from pathlib import Path
 import numpy as np
 from scipy.special import erfc
 import yaml
@@ -7,11 +6,6 @@ import yaml
 def load_yaml(path: str):
     with open(path, "r") as f:
         return yaml.safe_load(f)
-
-
-def ensure_dir(path: Path):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    return path
 
 
 def norm_survival(x):
@@ -41,7 +35,6 @@ def discovery_pvalue(r):
 
 __all__ = [
     "load_yaml",
-    "ensure_dir",
     "norm_survival",
     "discovery_z",
     "discovery_q0",

@@ -1,6 +1,6 @@
 # Per-signal job config: s_true = 10  (max Asimov Z ~ 8.25 over the grid)
-# Allow up to 1e7 inner toys. The 5-sigma display ceiling is set at merge time;
-# the continuous approximations (q/q*, naive) still run off the top margin.
+# Allow up to 1e7 inner toys. A separate 5-sigma graphical display maximum is
+# set at merge time; the continuous approximations retain their true values.
 s_vec: [10.0]
 tauVec: [0.5, 2.0]
 relSigVec: [0.25, 1.0]
