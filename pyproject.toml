@@ -3,17 +3,20 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "counting-exp"
+name = "medsig"
 version = "0.2.0"
-description = "Counting experiment utilities and plotting scripts"
+description = "Higher-order discovery significance for Poisson counting experiments"
+readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
     "numpy>=2.0.0",
     "scipy>=1.13.0",
     "matplotlib>=3.9.0",
     "PyYAML>=6.0",
-    "tqdm>=4.64.0",
 ]
+
+[project.urls]
+Repository = "https://github.com/EnzoCanonero/medsig"
 
 [tool.setuptools]
 package-dir = {"" = "."}

@@ -1,55 +1,82 @@
-This repo contains code to:
-- Compute p-values and Asimov/MC median significances for simple counting (“on”) and on/off experiments.
-- Compare asymptotic test statistics r, r* to MC.
+# medsig
 
-Structure (flattened modules, scripts, and configs):
-- `src/on.py`, `src/on_off.py`: model-specific math/stats helpers; `src/common.py` for small utilities.
-- `config/`: one paper YAML config for each plotting script.
-- `scripts/`: local plotting CLIs and the HTCondor batch workflow.
-- `notebooks/playground.ipynb`: lightweight demo for single p-value/medsig plots (interactive, not batch).
-- `plots/`: consolidated all-statistics plots and the auxiliary PDFs produced by the same runs.
-- `runs/`: ignored HTCondor campaign data, created only when batch jobs are submitted.
+`medsig` contains the statistical calculations and plotting workflows used for
+the accompanying paper on higher-order discovery significance in Poisson
+counting experiments.
 
-Paper plot generation (from the repository root):
-- Known-background significance: `python3 scripts/make_simple_pval_plots.py`
-- Known-background median significance: `python3 scripts/make_simple_medsig_plots.py`
-- On/off significance: `python3 scripts/make_onoff_pval_plots.py`
-- On/off median significance (serial): `python3 scripts/make_onoff_medsig_plots.py`
+The two models are
 
-The plotting configs use `statistics: [r, rstar]` to select the asymptotic
-curves. Median-significance configs additionally use
-`mc_summaries: [median]`, with `mean` available when needed.
+- known background: `N ~ Pois(s + b)`;
+- on/off measurement: `N ~ Pois(s + b)` and `M ~ Pois(tau b)`.
 
-The serial on/off configuration is deliberately limited to a practical local
-runtime. It is suitable for regenerating and checking the figures, but it does
-not reproduce the higher-precision batch calculation used for the manuscript.
+The code evaluates the signed likelihood root `r` and its higher-order form
+`r*`. The discovery statistics are `q0 = max(0, r)^2` and
+`q0* = max(0, r*)^2`; their significances are the corresponding square roots.
+The one-sided p-value is `1 - Phi(Z)`.
 
-## HTCondor production run
+## Repository layout
+
+- `src/common.py`: the shared discovery convention and Gaussian tail.
+- `src/on.py`: known-background likelihood, p-values and expected significance.
+- `src/on_off.py`: profiled on/off likelihood, higher-order statistic and MC.
+- `config/`: one paper configuration for each plotting workflow.
+- `scripts/`: local plotting commands and the HTCondor production workflow.
+- `notebooks/playground.ipynb`: a short interactive introduction to both models.
+- `plots/`: the PDFs produced for the paper.
+- `runs/`: ignored HTCondor campaign data, created at submission time.
+
+## Installation
+
+From the repository root, install the package in editable mode:
+
+```bash
+python3 -m pip install -e .
+```
+
+## Paper plots
+
+Run the four plotting commands from the repository root:
+
+```bash
+python3 scripts/make_simple_pval_plots.py
+python3 scripts/make_simple_medsig_plots.py
+python3 scripts/make_onoff_pval_plots.py
+python3 scripts/make_onoff_medsig_plots.py
+```
+
+The known-background reference is the inclusive Poisson tail. For the on/off
+observed-significance plot, `profile_sum` is a deterministic plug-in reference:
+the background is profiled under the tested signal and the joint Poisson tail
+is summed on a truncated grid. It is a reference calculation, not an exact
+elimination of the nuisance parameter.
+
+Plot configurations use `statistics: [r, rstar]` to select asymptotic curves.
+Median-significance configurations use `mc_summaries: [median]`; `mean` is also
+available. The local on/off MC settings are intentionally modest enough for a
+terminal run and do not reproduce the manuscript's production precision.
+
+## HTCondor production
 
 The local and batch calculations share `config/paper_onoff_medsig.yaml`. The
-serial script reads `local_mc`; the HTCondor scripts read `batch_mc`. Physics
-parameters, plot selection and output names are therefore defined only once.
+serial plotter reads `local_mc`; the cluster workflow reads `batch_mc`.
 
-From a clean repository checkout on the cluster, optionally identify the
-script that activates the Python environment and submit a named campaign:
+From a clean checkout on the cluster, optionally identify a script that
+activates the Python environment, then submit a named campaign:
 
 ```bash
 export MEDSIG_SETUP_SCRIPT=/path/to/setup_medsig_env.sh
 python3 scripts/submit_onoff_medsig_jobs.py --run paper-production
 ```
 
-The submitter freezes the Git commit, configuration and worker source under
-`runs/paper-production/`. The manifest records checksums for both the YAML and
-the Python source. Each Condor job receives that snapshot and writes one JSON
-result back to the campaign. If
-`MEDSIG_SETUP_SCRIPT` is set, it must be an absolute path visible from every
-execute node. Monitor the jobs with `condor_q`.
+The submitter records the Git commit and freezes copies of the configuration,
+worker and statistical source under `runs/paper-production/`. It checks the
+Condor description with `condor_submit -dry-run` before submitting any jobs.
 
 ```text
 runs/paper-production/
 ├── config.yaml
 ├── manifest.json
-├── input/          # frozen worker and src/ snapshot
+├── input/
 ├── results/
 │   ├── s2/
 │   ├── s5/
@@ -57,22 +84,12 @@ runs/paper-production/
 └── logs/
 ```
 
-After every job has finished, return to the same clean Git commit and Python
-environment, validate the complete campaign and render the standard PDFs under
-`plots/`:
+After all jobs finish, collect the campaign from the same clean Git commit:
 
 ```bash
 python3 scripts/collect_onoff_medsig_results.py --run paper-production
 ```
 
-The collector refuses to render incomplete or mixed campaigns. Before each
-cluster is submitted, the submission helper automatically runs
-`condor_submit -dry-run` with the complete set of required macros.
-
-## Installation
-
-From the repository root, install in editable mode so notebooks and scripts can import `src`:
-
-```bash
-python3 -m pip install -e .
-```
+The collector rejects missing, duplicated, corrupt or inconsistent results.
+Only after the complete campaign passes validation does it write the standard
+PDFs to `plots/`.

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Generate the known-background observed-significance paper plots."""
+
 import argparse
 import sys
 from pathlib import Path
@@ -64,7 +66,13 @@ def _set_count_significance_limits(ax, n_vals: np.ndarray, *z_arrays: np.ndarray
     ax.set_ylim(min(0.0, z_min - 0.04 * z_span), z_max + 0.10 * z_span)
 
 
-def _n_max_for_target_z_on(s0: float, b: float, start_n: int, target_z: float, max_n: int = 10_000) -> int:
+def _n_max_for_target_z_on(
+    s0: float,
+    b: float,
+    start_n: int,
+    target_z: float,
+    max_n: int = 10_000,
+) -> int:
     """Increase n until the exact Poisson-tail significance reaches target_z."""
     if target_z <= 0.0:
         return int(start_n)
@@ -72,7 +80,9 @@ def _n_max_for_target_z_on(s0: float, b: float, start_n: int, target_z: float, m
     target_p = float(norm.sf(target_z))
     n = int(start_n)
     while n < max_n:
-        p_ref = float(pvals_on(float(s0), float(b), np.array([n], dtype=int))["p_true"][0])
+        p_ref = float(
+            pvals_on(float(s0), float(b), np.array([n], dtype=int))["p_exact"][0]
+        )
         if p_ref <= target_p:
             return n
         n += 1
@@ -113,7 +123,7 @@ def compute_pvalue_scans(
         continuity_correction_r=continuity_correction_r,
         continuity_correction_rstar=continuity_correction_rstar,
     )
-    p_ref = np.asarray(out["p_true"], dtype=float)
+    p_ref = np.asarray(out["p_exact"], dtype=float)
     p_r = np.asarray(out["p_r"], dtype=float)
     p_rstar = np.asarray(out["p_rstar"], dtype=float)
 
@@ -210,7 +220,15 @@ def write_significance_pdf(
 
             z_values_for_limits = [z_ref]
             if "r" in statistics:
-                ax_z.plot(n_vals, z_r, marker="o", linestyle="None", ms=5, label=r"$q_0$", color="0.15")
+                ax_z.plot(
+                    n_vals,
+                    z_r,
+                    marker="o",
+                    linestyle="None",
+                    ms=5,
+                    label=r"$q_0$",
+                    color="0.15",
+                )
                 z_values_for_limits.append(z_r)
             if "rstar" in statistics:
                 ax_z.plot(

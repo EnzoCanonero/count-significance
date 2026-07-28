@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Generate the known-background median-significance paper plot."""
+
 import argparse
 import sys
 from pathlib import Path
@@ -158,9 +160,27 @@ def write_median_significance_pdf(
         )
     stat_handles.append(Line2D([0], [0], color="0.15", linestyle=":", label=r"$s/\sqrt{b}$"))
     if "median" in mc_summaries:
-        stat_handles.append(Line2D([0], [0], color="0.15", marker="o", linestyle="None", label=r"MC median"))
+        stat_handles.append(
+            Line2D(
+                [0],
+                [0],
+                color="0.15",
+                marker="o",
+                linestyle="None",
+                label=r"MC median",
+            )
+        )
     if "mean" in mc_summaries:
-        stat_handles.append(Line2D([0], [0], color="0.15", marker="+", linestyle="None", label=r"MC mean"))
+        stat_handles.append(
+            Line2D(
+                [0],
+                [0],
+                color="0.15",
+                marker="+",
+                linestyle="None",
+                label=r"MC mean",
+            )
+        )
 
     legend_kwargs = {
         "frameon": False,

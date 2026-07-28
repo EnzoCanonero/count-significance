@@ -12,6 +12,7 @@ trim_to_discovery_tail: true
 
 # Statistical options
 reference_method: "profile_sum"
+# Maximum omitted probability in each truncated Poisson support.
 reference_tail_mass: 1.0e-12
 statistics: [r, rstar]
 

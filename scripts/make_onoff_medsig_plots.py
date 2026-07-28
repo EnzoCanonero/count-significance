@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Compute and render the on/off median-significance paper plots."""
+
 import argparse
 import sys
 from pathlib import Path
@@ -84,16 +86,21 @@ def _display_y_max(values, z_display_max):
     return _medsig_ymax(*values)
 
 
-def mask_mc_at_display_max(results, z_display_max):
-    """Hide MC summaries at or above the graphical display maximum."""
+def mask_mc_for_display(results, z_display_max):
+    """Return plot-ready results without modifying the calculated arrays."""
     if z_display_max is None:
-        return
+        return results
 
+    display_results = {
+        scan: {name: values.copy() for name, values in scan_results.items()}
+        for scan, scan_results in results.items()
+    }
     z_display_max = float(z_display_max)
-    for scan_results in results.values():
+    for scan_results in display_results.values():
         for key in ("Z_mc_median", "Z_mc_mean"):
             values = scan_results[key]
             values[values >= z_display_max] = np.nan
+    return display_results
 
 
 def _selected_y_values(scan_results, s_idx, statistics, mc_summaries):
@@ -141,7 +148,8 @@ def compute_median_significance(
     seed: int,
 ):
     """
-    Compute Asimov and MC-median Z grids for the uncertain-background case via expected_significance_onoff.
+    Compute Asimov and MC-median Z grids for the uncertain-background case
+    with ``expected_significance_onoff``.
 
     Return the fixed-tau and fixed-relative-uncertainty results as two named
     dictionaries. Each dictionary comes directly from
@@ -381,8 +389,18 @@ def _plot_combined_tau_panel(
         if "r" in statistics:
             ax.plot(b_values, scan_results["Z_A_r"][s_idx, tau_idx], color=color, linestyle="-")
         if "rstar" in statistics:
-            ax.plot(b_values, scan_results["Z_A_rstar"][s_idx, tau_idx], color=color, linestyle="--")
-        ax.plot(b_values, _naive_z_fixed_tau(s_true, b_values, float(tau)), color=color, linestyle=":")
+            ax.plot(
+                b_values,
+                scan_results["Z_A_rstar"][s_idx, tau_idx],
+                color=color,
+                linestyle="--",
+            )
+        ax.plot(
+            b_values,
+            _naive_z_fixed_tau(s_true, b_values, float(tau)),
+            color=color,
+            linestyle=":",
+        )
         if "median" in mc_summaries:
             ax.plot(
                 b_values,
@@ -437,7 +455,12 @@ def _plot_combined_rel_sig_panel(
         if "r" in statistics:
             ax.plot(b_values, scan_results["Z_A_r"][s_idx, rel_sig_idx], color=color, linestyle="-")
         if "rstar" in statistics:
-            ax.plot(b_values, scan_results["Z_A_rstar"][s_idx, rel_sig_idx], color=color, linestyle="--")
+            ax.plot(
+                b_values,
+                scan_results["Z_A_rstar"][s_idx, rel_sig_idx],
+                color=color,
+                linestyle="--",
+            )
         ax.plot(
             b_values,
             _naive_z_fixed_rel_sig(s_true, b_values, float(rel_sig)),
@@ -494,12 +517,46 @@ def _add_combined_legends(
     if "r" in statistics:
         stat_handles.append(Line2D([0], [0], color="0.15", linestyle="-", label=r"Asimov $q_0$"))
     if "rstar" in statistics:
-        stat_handles.append(Line2D([0], [0], color="0.15", linestyle="--", label=r"Asimov $q_0^\ast$"))
-    stat_handles.append(Line2D([0], [0], color="0.15", linestyle=":", label=r"$s/\sqrt{b+\sigma_b^2}$"))
+        stat_handles.append(
+            Line2D(
+                [0],
+                [0],
+                color="0.15",
+                linestyle="--",
+                label=r"Asimov $q_0^\ast$",
+            )
+        )
+    stat_handles.append(
+        Line2D(
+            [0],
+            [0],
+            color="0.15",
+            linestyle=":",
+            label=r"$s/\sqrt{b+\sigma_b^2}$",
+        )
+    )
     if "median" in mc_summaries:
-        stat_handles.append(Line2D([0], [0], color="0.15", marker="o", linestyle="None", label=r"MC median"))
+        stat_handles.append(
+            Line2D(
+                [0],
+                [0],
+                color="0.15",
+                marker="o",
+                linestyle="None",
+                label=r"MC median",
+            )
+        )
     if "mean" in mc_summaries:
-        stat_handles.append(Line2D([0], [0], color="0.15", marker="+", linestyle="None", label=r"MC mean"))
+        stat_handles.append(
+            Line2D(
+                [0],
+                [0],
+                color="0.15",
+                marker="+",
+                linestyle="None",
+                label=r"MC mean",
+            )
+        )
 
     legend_kwargs = {
         "frameon": False,
@@ -524,7 +581,15 @@ def _add_combined_legends(
     if "mean" in mc_summaries:
         config_anchor_y -= 0.07
 
-    config_handles = [Line2D([0], [0], color="none", linestyle="None", label=rf"$s={float(s_true):g}$")]
+    config_handles = [
+        Line2D(
+            [0],
+            [0],
+            color="none",
+            linestyle="None",
+            label=rf"$s={float(s_true):g}$",
+        )
+    ]
     config_handles.extend(
         Line2D([0], [0], color=colors[idx % len(colors)], linestyle="-", label=labels[idx])
         for idx in range(n_configs)
@@ -595,7 +660,7 @@ def main(cfg_path: str):
     )
 
     # The display limit does not alter the continuous statistical curves.
-    mask_mc_at_display_max(results, z_display_max)
+    results = mask_mc_for_display(results, z_display_max)
 
     write_median_significance_pdfs(
         s_vec=s_vec,

@@ -1,6 +1,7 @@
 # Physics parameters
 s_vec: [2.0, 5.0, 10.0]
 tau_vec: [0.5, 2.0]
+# Relative background uncertainty, sigma_b / b
 rel_sig_vec: [0.25, 1.0]
 
 # Scan
@@ -26,21 +27,21 @@ batch_mc:
   min_toys: 1000
   signal_jobs:
     - s_true: 2.0
-      max_toys: 10000
-      outer_per_job: 100
       n_jobs: 20
+      outer_per_job: 100
+      max_toys: 10000
       outer_seed: 10000
       inner_seed: 110000
     - s_true: 5.0
-      max_toys: 10000000
-      outer_per_job: 5
       n_jobs: 400
+      outer_per_job: 5
+      max_toys: 10000000
       outer_seed: 20000
       inner_seed: 120000
     - s_true: 10.0
-      max_toys: 10000000
-      outer_per_job: 5
       n_jobs: 400
+      outer_per_job: 5
+      max_toys: 10000000
       outer_seed: 30000
       inner_seed: 130000
 

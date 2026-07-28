@@ -6,12 +6,10 @@ import hashlib
 import json
 import math
 import os
-import platform
 import sys
 from pathlib import Path
 
 import numpy as np
-import scipy
 import yaml
 
 
@@ -32,6 +30,7 @@ RESULT_FIELDS = (
     "b_profiled",
     "precision_limited",
 )
+SCHEMA_VERSION = 1
 
 
 def parse_args():
@@ -173,18 +172,16 @@ def read_job_settings(config, signal_index, job_id):
 
     return {
         "s_true": s_true,
-        "n_outer": n_outer,
-        "n_jobs": n_jobs,
         "outer_per_job": outer_per_job,
         "n_bpts": n_bpts,
         "mc_sigrel_z": mc_sigrel_z,
         "min_toys": min_toys,
         "max_toys": max_toys,
-        "outer_seed_base": positive_integer(
+        "outer_seed": positive_integer(
             settings["outer_seed"],
             "signal job outer_seed",
         ),
-        "inner_seed_base": positive_integer(
+        "inner_seed": positive_integer(
             settings["inner_seed"],
             "signal job inner_seed",
         ),
@@ -205,8 +202,8 @@ def compute_points(config, settings, job_id):
         settings["n_bpts"],
     )
 
-    outer_stream_seed = settings["outer_seed_base"] + job_id
-    inner_stream_seed = settings["inner_seed_base"] + job_id
+    outer_stream_seed = settings["outer_seed"] + job_id
+    inner_stream_seed = settings["inner_seed"] + job_id
     rng_outer = np.random.default_rng(outer_stream_seed)
     rng_inner = np.random.default_rng(inner_stream_seed)
 
@@ -282,7 +279,7 @@ def compute_points(config, settings, job_id):
                     point[name] = result[name]
                 points.append(point)
 
-    return points, outer_stream_seed, inner_stream_seed
+    return points
 
 
 def write_output(output_path, data):
@@ -307,14 +304,14 @@ def main():
     config, config_hash = load_config(config_path)
     settings = read_job_settings(config, args.signal_index, args.job_id)
     source_hash = frozen_source_sha256()
-    points, outer_stream_seed, inner_stream_seed = compute_points(
+    points = compute_points(
         config,
         settings,
         args.job_id,
     )
 
     output = {
-        "schema_version": 1,
+        "schema_version": SCHEMA_VERSION,
         "provenance": {
             "run": args.run,
             "commit": args.commit,
@@ -323,19 +320,6 @@ def main():
             "signal_index": args.signal_index,
             "s_true": settings["s_true"],
             "job_id": args.job_id,
-            "n_jobs": settings["n_jobs"],
-            "n_outer": settings["n_outer"],
-            "outer_per_job": settings["outer_per_job"],
-            "outer_seed_base": settings["outer_seed_base"],
-            "inner_seed_base": settings["inner_seed_base"],
-            "outer_stream_seed": outer_stream_seed,
-            "inner_stream_seed": inner_stream_seed,
-            "python_version": platform.python_version(),
-            "numpy_version": np.__version__,
-            "scipy_version": scipy.__version__,
-            "expected_points": settings["outer_per_job"]
-            * settings["n_bpts"]
-            * (len(config["tau_vec"]) + len(config["rel_sig_vec"])),
         },
         "points": points,
     }
