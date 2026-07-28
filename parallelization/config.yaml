@@ -17,7 +17,7 @@ n_bpts_sig: 30
 # Target relative precision on Z in the inner dynamic-toy p-value
 sigrel_Z: 0.01
 
-# Inner toy ranges
+# Minimum number of inner toys and computational cap
 min_toys: 1000
 max_toys: 10000000
 

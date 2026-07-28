@@ -14,11 +14,8 @@ b_min_sig: 0.1
 b_max_sig: 100.0
 n_bpts_sig: 50
 
-# Toy precision floor of the runs (1/max_toys = 1e-7).
-max_toys: 10000000
-
 # Sets the y-axis top to 5 sigma and hides MC markers whose median reaches this
-# toy-data ceiling. The continuous approximations (Asimov q/q* and the naive
+# display ceiling. The continuous approximations (Asimov q/q* and the naive
 # curve) are NOT capped: they keep their true values and run off the top margin.
 Z_ceiling: 5.0
 
