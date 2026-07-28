@@ -17,9 +17,6 @@ sigrel_Z: 0.02
 min_toys: 1000
 max_toys: 10000000     # ceiling isf(1e-7) ~ 5.20 sigma; ~128 s / outer exp (measured)
 
-continuity_correction_r: False
-continuity_correction_rstar: False
-
 # n_outer total = outer_per_job * (queue in pval_s10.sub) = 5 * 400 = 2000
 # ~5 * ~213 s ~ 18 min / job (n_bpts=50)
 outer_per_job: 5

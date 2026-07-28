@@ -15,9 +15,6 @@ sigrel_Z: 0.02
 min_toys: 1000
 max_toys: 10000        # ceiling isf(1e-4) ~ 3.72 sigma
 
-continuity_correction_r: False
-continuity_correction_rstar: False
-
 # Outer pseudo-experiments per grid point, per job.
 # n_outer total = outer_per_job * (queue in pval_s2.sub) = 100 * 20 = 2000
 outer_per_job: 100
