@@ -108,8 +108,6 @@ def run_experiments_onoff(
     min_toys: int,
     max_toys: int,
     seed: int,
-    continuity_correction_r: bool = False,
-    continuity_correction_rstar: bool = True,
 ):
     """
     Compute Asimov and MC-median Z grids for the uncertain-background case via expected_significance_onoff.
@@ -136,8 +134,6 @@ def run_experiments_onoff(
         min_toys=min_toys,
         max_toys=max_toys,
         seed=seed,
-        continuity_correction_r=continuity_correction_r,
-        continuity_correction_rstar=continuity_correction_rstar,
     )
 
     # Vectorised grids for fixed-σ_rel scans: tau(b) = 1/(sigma_rel^2 * b)
@@ -153,8 +149,6 @@ def run_experiments_onoff(
         min_toys=min_toys,
         max_toys=max_toys,
         seed=seed + 1,  # decorrelate from fixed-tau call
-        continuity_correction_r=continuity_correction_r,
-        continuity_correction_rstar=continuity_correction_rstar,
     )
 
     return (
@@ -580,8 +574,6 @@ def main(cfg_path: str):
     save_individual = bool(cfg.get("individual_plots", False))
     mc_statistics = cfg.get("mc_statistics", ["median"])
     asimov_statistics = cfg.get("asimov_statistics", ["r", "rstar"])
-    continuity_correction_r = bool(cfg.get("continuity_correction_r", False))
-    continuity_correction_rstar = bool(cfg.get("continuity_correction_rstar", True))
     outdir.mkdir(parents=True, exist_ok=True)
     out_pdf = Path(cfg.get("out_summary_pdf", outdir / "onoff_medsig.pdf"))
     out_combined_tau_template = str(
@@ -618,8 +610,6 @@ def main(cfg_path: str):
         min_toys=min_toys,
         max_toys=max_toys,
         seed=seed,
-        continuity_correction_r=continuity_correction_r,
-        continuity_correction_rstar=continuity_correction_rstar,
     )
 
     make_plots_onoff(

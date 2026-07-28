@@ -40,27 +40,48 @@ def r_stat_on(s0: float, b: float, n: float, continuity_correction: bool = False
     return sgn * math.sqrt(W)
 
 
-def q_stat_on(s0: float, b: float, n: float, continuity_correction: bool = False) -> float:
-    """q(s0) = sqrt(n) * log(n / mu0), with mu0 = s0 + b."""
+def u_stat_on(s0: float, b: float, n: float, continuity_correction: bool = False) -> float:
+    """u(s0) = sqrt(n) * log(n / mu0), with mu0 = s0 + b."""
     n = _correct_count(n, continuity_correction)
-    if n <= 0:
+    if n == 0:
+        return 0.0
+    if n < 0:
         return float("nan")
     mu0 = s0 + b
     if mu0 <= 0.0:
         return float("inf")
     return math.sqrt(n) * math.log(n / mu0)
 
+
 def r_star_on(s0: float, b: float, n: float, continuity_correction: bool = True) -> float:
     """
     Barndorff–Nielsen / Lugannani–Rice corrected root.
     """
-    r = r_stat_on(s0, b, n, continuity_correction=continuity_correction)
-    q = q_stat_on(s0, b, n, continuity_correction=continuity_correction)
+    n_eff = _correct_count(n, continuity_correction)
+    mu0 = s0 + b
+    r = r_stat_on(s0, b, n_eff, continuity_correction=False)
 
-    if (not math.isfinite(q)) or abs(q) < 1e-12 or abs(r) < 1e-12:
+    # At n=0 the logarithmic correction is not defined, so we use r*=r.
+    if n_eff == 0:
         return r
 
-    return r + (1.0 / r) * math.log(abs(q / r))
+    # At n=mu0 both r and u vanish. Use the analytic limit of r*.
+    mle_residual = n_eff - mu0
+    mle_scale = abs(n_eff) + abs(s0) + abs(b)
+    if continuity_correction:
+        mle_scale += 0.5
+    machine_precision = np.finfo(float).eps
+    roundoff_limit = 8.0 * machine_precision * mle_scale
+
+    if mu0 > 0.0 and abs(mle_residual) <= roundoff_limit:
+        return 1.0 / (6.0 * math.sqrt(mu0))
+
+    u = u_stat_on(s0, b, n_eff, continuity_correction=False)
+
+    if (not math.isfinite(u)) or u == 0.0 or r == 0.0:
+        return r
+
+    return r + (1.0 / r) * math.log(abs(u / r))
 
 
 def pvals_on(
@@ -172,7 +193,7 @@ def expected_significance_on(
 __all__ = [
     "poisson_tail_on",
     "r_stat_on",
-    "q_stat_on",
+    "u_stat_on",
     "norm_survival",
     "r_star_on",
     "pvals_on",

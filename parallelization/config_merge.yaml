@@ -22,9 +22,6 @@ max_toys: 10000000
 # curve) are NOT capped: they keep their true values and run off the top margin.
 Z_ceiling: 5.0
 
-continuity_correction_r: False
-continuity_correction_rstar: False
-
 mc_statistics: [median]
 
 # Input job directories (one per signal submission).

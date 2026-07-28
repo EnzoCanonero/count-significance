@@ -182,13 +182,11 @@ def _pvals_onoff_exact(
     n,
     m,
     tail_mass: float = 1e-12,
-    continuity_correction_r: bool = False,
-    continuity_correction_rstar: bool = True,
 ):
     """Exact plug-in null tail using the same r-ordering as the toy MC code."""
-    r_ref = float(r_stat_onoff(s, n, m, tau, continuity_correction=False))
-    r_obs = float(r_stat_onoff(s, n, m, tau, continuity_correction=continuity_correction_r))
-    rs_obs = float(r_star_onoff(s, n, m, tau, continuity_correction=continuity_correction_rstar))
+    r_ref = float(r_stat_onoff(s, n, m, tau))
+    r_obs = r_ref
+    rs_obs = float(r_star_onoff(s, n, m, tau))
 
     p_r = float(discovery_pvalue(r_obs))
     p_rs = float(discovery_pvalue(rs_obs))
@@ -211,7 +209,7 @@ def _pvals_onoff_exact(
     pm = poisson.pmf(m_grid, mu_m)
 
     nn, mm = np.meshgrid(n_grid, m_grid, indexing="ij")
-    r_grid = r_stat_onoff(s, nn, mm, tau, continuity_correction=False)
+    r_grid = r_stat_onoff(s, nn, mm, tau)
     probs = pn[:, None] * pm[None, :]
     p_ref = float(np.sum(probs[r_grid >= r_ref]))
     p_ref = min(p_ref, 0.5)
@@ -233,8 +231,6 @@ def _pvals_onoff_reference(
     sigrel: float,
     reference_method: str,
     reference_tail_mass: float,
-    continuity_correction_r: bool = False,
-    continuity_correction_rstar: bool = True,
 ):
     if reference_method == "exact":
         return _pvals_onoff_exact(
@@ -244,8 +240,6 @@ def _pvals_onoff_reference(
             n,
             m,
             tail_mass=reference_tail_mass,
-            continuity_correction_r=continuity_correction_r,
-            continuity_correction_rstar=continuity_correction_rstar,
         )
     if reference_method == "mc":
         return pvals_onoff(
@@ -255,8 +249,6 @@ def _pvals_onoff_reference(
             n,
             m,
             sigrel=sigrel,
-            continuity_correction_r=continuity_correction_r,
-            continuity_correction_rstar=continuity_correction_rstar,
         )
     raise ValueError(f"Unknown reference_method={reference_method!r}")
 
@@ -275,8 +267,6 @@ def compute_pvalues_onoff(
     reference_tail_mass: float = 1e-12,
     max_n: int = 10_000,
     min_m0_values: int = 3,
-    continuity_correction_r: bool = False,
-    continuity_correction_rstar: bool = True,
 ):
     """Compute p-values and relative differences for all n0 and candidate m0 values."""
     eps = 1e-16
@@ -325,8 +315,6 @@ def compute_pvalues_onoff(
                 sigrel=sigrel,
                 reference_method=reference_method,
                 reference_tail_mass=reference_tail_mass,
-                continuity_correction_r=continuity_correction_r,
-                continuity_correction_rstar=continuity_correction_rstar,
             )
             n_vals.append(n0)
             p_r.append(out["p_r"])
@@ -599,9 +587,6 @@ def main(cfg_path: str):
     make_significance_plots = bool(cfg.get("significance_plots", cfg.get("significance_pvalue_plots", True)))
     drop_zero_m0 = bool(cfg.get("drop_zero_m0", cfg.get("drop_s0_zero_m0", True)))
     trim_to_discovery_tail = bool(cfg.get("trim_to_discovery_tail", True))
-    continuity_correction_r = bool(cfg.get("continuity_correction_r", False))
-    continuity_correction_rstar = bool(cfg.get("continuity_correction_rstar", True))
-
     out_pdf.parent.mkdir(parents=True, exist_ok=True)
     out_improvement_pdf.parent.mkdir(parents=True, exist_ok=True)
     out_significance_pdf.parent.mkdir(parents=True, exist_ok=True)
@@ -624,8 +609,6 @@ def main(cfg_path: str):
                 reference_tail_mass=reference_tail_mass,
                 max_n=max_n,
                 min_m0_values=min_m0_values,
-                continuity_correction_r=continuity_correction_r,
-                continuity_correction_rstar=continuity_correction_rstar,
             )
         )
 

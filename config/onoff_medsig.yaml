@@ -20,11 +20,6 @@ sigrel_Z: 0.05
 min_toys: 500
 max_toys: 100000
 
-# Continuity correction switches for asymptotic approximations
-# Disabled for the uncertain-background case by default: raw r* performs better against the reference.
-continuity_correction_r: False
-continuity_correction_rstar: False
-
 # Outer pseudo-experiments (median Z estimation)
 n_outer: 300          # set to 1000 to mirror Condor
 outer_seed: 12345

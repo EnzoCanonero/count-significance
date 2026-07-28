@@ -125,8 +125,6 @@ def asimov_grids(
     rel_sig_vec,
     b_values_tau,
     b_values_sig,
-    continuity_correction_r,
-    continuity_correction_rstar,
 ):
     """Compute the (deterministic) Asimov q / q* grids on the same scan layout."""
     n_s, n_tau, n_sig = len(s_vec), len(tau_vec), len(rel_sig_vec)
@@ -144,8 +142,6 @@ def asimov_grids(
                     float(s_true),
                     float(b),
                     float(tau),
-                    continuity_correction_r=continuity_correction_r,
-                    continuity_correction_rstar=continuity_correction_rstar,
                 )
                 Z_A_r_tau[s_idx, tau_idx, b_idx] = asim["Z_A_r"]
                 Z_A_rstar_tau[s_idx, tau_idx, b_idx] = asim["Z_A_rstar"]
@@ -157,8 +153,6 @@ def asimov_grids(
                     float(s_true),
                     float(b),
                     tau_b,
-                    continuity_correction_r=continuity_correction_r,
-                    continuity_correction_rstar=continuity_correction_rstar,
                 )
                 Z_A_r_sig[s_idx, sig_idx, b_idx] = asim["Z_A_r"]
                 Z_A_rstar_sig[s_idx, sig_idx, b_idx] = asim["Z_A_rstar"]
@@ -290,9 +284,6 @@ def main():
     save_individual = bool(cfg.get("individual_plots", False))
     mc_statistics = cfg.get("mc_statistics", ["median"])
     asimov_statistics = cfg.get("asimov_statistics", ["r", "rstar"])
-    continuity_correction_r = bool(cfg.get("continuity_correction_r", False))
-    continuity_correction_rstar = bool(cfg.get("continuity_correction_rstar", False))
-
     # Aggregate the per-job toys and compute the Asimov grids.
     groups, files = collect_results(cfg)
     print(f"Read {len(files)} job files; {len(groups)} grid points populated.")
@@ -310,8 +301,6 @@ def main():
         rel_sig_vec,
         b_values_tau,
         b_values_sig,
-        continuity_correction_r=continuity_correction_r,
-        continuity_correction_rstar=continuity_correction_rstar,
     )
 
     # Z_ceiling sets the y-axis top and removes saturated MC markers. The

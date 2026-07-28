@@ -2,8 +2,6 @@ s_vec: [0.0]
 b_vec: [2.0]
 tau_vec: [0.5]
 mc_sigrel_Z: 0.001
-continuity_correction_r: False
-continuity_correction_rstar: False
 drop_zero_m0: True
 trim_to_discovery_tail: True
 significance_plots: True

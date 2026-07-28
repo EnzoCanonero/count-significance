@@ -10,8 +10,6 @@ n_bpts_sig: 30
 sigrel_Z: 0.05
 min_toys: 500
 max_toys: 100000
-continuity_correction_r: False
-continuity_correction_rstar: False
 n_outer: 300
 outer_seed: 12345
 inner_seed: 67890
