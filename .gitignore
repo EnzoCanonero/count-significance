@@ -1,22 +1,20 @@
-# Byte-compiled / cache files
+# Python cache files
 __pycache__/
 *.py[cod]
-*.pyd
-*.pyo
 
-# Notebook checkpoints and autosave files
+# Notebook checkpoints
 .ipynb_checkpoints/
 *.nbconvert.ipynb
 
 # Virtual environments
 .env
-.venv
-.venv-lcg105/
+.venv*/
 env/
 venv/
 
-# System files
+# macOS files
 .DS_Store
+._*
 
 # Editor settings
 .vscode/
@@ -27,15 +25,7 @@ venv/
 
 # Condor job outputs
 parallelization/logs/
-parallelization/output/
-parallelization/output_s2/
-parallelization/output_s5/
-parallelization/output_s10/
+parallelization/output*/
 parallelization/onoff_medsig.pdf
 parallelization/plots_parallel/
-
-# Per-job toy JSONs (large, regenerable) in any output directory
 pval_job_*.json
-
-# Paper build/output directory
-paper/
