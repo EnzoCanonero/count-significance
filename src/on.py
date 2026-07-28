@@ -130,7 +130,6 @@ def median_expected_significance_on(
 
     p_tail = poisson_tail_on(s0=0.0, b=b, n=n_obs)
     p_tail = np.minimum(p_tail, 0.5)
-    p_tail = np.clip(p_tail, 1e-16, 1.0 - 1e-16)
     Z = norm.isf(p_tail)
     return float(np.median(Z)), float(np.mean(Z))
 

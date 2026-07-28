@@ -1,5 +1,5 @@
 # Per-signal job config: s_true = 5  (max Asimov Z ~ 5.4 over the grid)
-# max_toys=1e7 -> Z ceiling ~5.2 sigma; covers essentially the whole curve.
+# Allow up to 1e7 inner toys for the most significant observations.
 s_vec: [5.0]
 tauVec: [0.5, 2.0]
 relSigVec: [0.25, 1.0]
@@ -13,7 +13,7 @@ n_bpts_sig: 50
 
 sigrel_Z: 0.02
 min_toys: 1000
-max_toys: 10000000     # ceiling isf(1e-7) ~ 5.20 sigma
+max_toys: 10000000     # computational cap for each inner MC estimate
 
 # n_outer total = outer_per_job * (queue in pval_s5.sub) = 5 * 400 = 2000
 # ~5 * ~190 s ~ 16 min / job (n_bpts=50)

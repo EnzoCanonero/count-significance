@@ -56,7 +56,6 @@ def main():
     sigrel_Z = cfg["sigrel_Z"]
     min_toys = cfg.get("min_toys", 10_000)
     max_toys = cfg.get("max_toys", 2_000_000)
-    p_res = 1.0 / float(max_toys)
 
     points = []
 
@@ -81,8 +80,7 @@ def main():
                         seed=inner_seed,
                     )
 
-                    p_mc = min(max(out_p["p_mc"], p_res), 1.0 - p_res)
-                    Z_single = norm.isf(p_mc)
+                    Z_single = norm.isf(out_p["p_mc"])
 
                     rec = {
                         "mode": "tau",
@@ -98,7 +96,6 @@ def main():
                         "Z_single": float(Z_single),
                     }
                     rec.update(out_p)
-                    rec["p_mc"] = p_mc
                     points.append(rec)
 
             # --------- 2) Fixed sigma_rel ---------
@@ -122,8 +119,7 @@ def main():
                         seed=inner_seed,
                     )
 
-                    p_mc = min(max(out_p["p_mc"], p_res), 1.0 - p_res)
-                    Z_single = norm.isf(p_mc)
+                    Z_single = norm.isf(out_p["p_mc"])
 
                     rec = {
                         "mode": "sig",
@@ -139,7 +135,6 @@ def main():
                         "Z_single": float(Z_single),
                     }
                     rec.update(out_p)
-                    rec["p_mc"] = p_mc
                     points.append(rec)
 
     outdir = cfg.get("outdir", "output")

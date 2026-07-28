@@ -1,5 +1,5 @@
 import math
-from typing import Dict, Tuple
+from typing import Tuple
 
 import numpy as np
 from scipy.stats import norm
@@ -152,19 +152,25 @@ def required_toys_for_Z_precision(
     sigrel: float = 0.05,
     min_toys: int = 10_000,
     max_toys: int = 2_000_000,
-):
+) -> Tuple[int, bool]:
     """
     Estimate N so that the MC-based Z has relative uncertainty ≤ sigrel.
 
     Take Z ≈ r_obs and p = Φ̄(Z). With p̂ binomial, Var(p̂) = p(1−p)/N and
-    σ_p = sqrt[p(1−p)/N]. Propagate to Z via
+    |dZ/dp| = 1/φ(Z). Propagating the uncertainty from p to Z gives
 
-        σ_Z / Z ≈ |dZ/dp| * σ_p / Z ≤ sigrel,
+        N = p(1−p) / [sigrel² Z² φ(Z)²].
 
-    solve for N, then clip to [min_toys, max_toys].
+    Return the number of toys after applying the requested limits and a flag
+    which is true when max_toys prevents reaching the target precision.
     """
     min_toys = int(min_toys)
     max_toys = int(max_toys)
+    sigrel = float(sigrel)
+
+    if sigrel <= 0.0:
+        raise ValueError("sigrel must be positive")
+
     if max_toys < 1:
         max_toys = 1
     if min_toys < 1:
@@ -173,28 +179,36 @@ def required_toys_for_Z_precision(
         min_toys = max_toys
 
     Z = float(discovery_z(r_obs))
-    if not np.isfinite(Z) or Z <= 0.0:
-        return int(min_toys)
+    # Relative precision is not defined at Z=0, where there is no discovery.
+    if Z <= 0.0:
+        return min_toys, False
+    if not np.isfinite(Z):
+        return max_toys, True
 
-    p = norm_survival(Z)
+    p = float(norm_survival(Z))
+    phi = float(norm.pdf(Z))
     if (not np.isfinite(p)) or p <= 0.0 or p >= 1.0:
-        return int(max_toys)
+        return max_toys, True
+    if (not np.isfinite(phi)) or phi <= 0.0:
+        return max_toys, True
 
-    root_two_pi = math.sqrt(2.0 * math.pi)
-    u = -2.0 * math.log(root_two_pi * p)
-    if (not np.isfinite(u)) or u <= 0.0:
-        return int(max_toys)
+    numerator = p * (1.0 - p)
+    denominator = sigrel**2 * Z**2 * phi**2
+    if denominator <= 0.0:
+        return max_toys, True
 
-    dZdp = (1.0 - u) / (u * p * Z)
-    N = (dZdp * dZdp) * p * (1.0 - p) / (Z * Z * sigrel * sigrel)
+    required_toys = numerator / denominator
 
-    if (not np.isfinite(N)) or N <= 0.0:
-        N = max_toys
+    if not np.isfinite(required_toys):
+        return max_toys, True
 
-    N_int = int(math.ceil(N))
-    N_int = min(N_int, int(max_toys))
-    N_int = max(N_int, int(min_toys))
-    return N_int
+    required_toys = int(math.ceil(required_toys))
+    precision_limited = required_toys > max_toys
+
+    n_toys = max(required_toys, min_toys)
+    n_toys = min(n_toys, max_toys)
+    return n_toys, precision_limited
+
 
 # Unified function to compute p-values using r, r*, and MC simulations
 def pvals_onoff(
@@ -207,10 +221,15 @@ def pvals_onoff(
     min_toys: int = 10_000,
     max_toys: int = 2_000_000,
     seed: int = 12345,
-) -> Dict[str, float]:
-    """Compute p-values for observed (n,m) testing s."""
+) -> dict:
+    """
+    Compute p-values for observed (n,m) testing s.
 
-    #Compute the observed test statistics r and r* and their Gaussian-approximation p-values
+    The MC result includes the generated toy count, the number of tail
+    exceedances, and the resolution of the corrected p-value estimate.
+    """
+
+    # Compute the observed test statistics and their Gaussian p-values.
     r_ref = float(r_stat_onoff(s, n, m, tau))
     r_obs = r_ref
     rs_obs = float(r_star_onoff(s, n, m, tau))
@@ -218,34 +237,47 @@ def pvals_onoff(
     p_r = float(discovery_pvalue(r_obs))
     p_rs = float(discovery_pvalue(rs_obs))
 
-    #Compute the profiled background yield under the signal hypothesis s
-    b_tilde = b_profiled(s, n, m, tau)
+    # Profile the background under the signal hypothesis being tested.
+    b_tilde = float(b_profiled(s, n, m, tau))
 
-    #Estimate the required number of toys to reach the target relative precision on the p-value
-    n_toys = required_toys_for_Z_precision(
+    # Choose enough toys to reach the target relative precision on Z.
+    n_toys, precision_limited = required_toys_for_Z_precision(
         r_ref,
         sigrel=sigrel,
         min_toys=min_toys,
         max_toys=max_toys,
     )
 
-    #Generate toys to estimate the Monte Carlo p-value.
-    #Toys are drawn using the profiled background, mimicking the realistic case where b is unknown.
+    # Generate toys under the null using the profiled background.
     toys_N, toys_M = sample_null_toys(s, b_tilde, tau, n_toys=n_toys, seed=seed)
     r_toys = r_stat_onoff(s, toys_N, toys_M, tau)
 
-    p_mc_raw = float(np.mean(r_toys >= r_ref))
-    p_mc = 0.5 if r_ref <= 0.0 else min(p_mc_raw, 0.5)
+    # Count toys in the observed-or-more-extreme discovery tail.
+    n_exceedances = int(np.count_nonzero(r_toys >= r_ref))
+    p_mc_raw = n_exceedances / n_toys
+    p_mc_corrected = (n_exceedances + 1.0) / (n_toys + 1.0)
 
-    var_p = max(p_mc_raw * (1.0 - p_mc_raw), 0.0) / n_toys
+    if r_ref <= 0.0:
+        p_mc = 0.5
+    else:
+        p_mc = min(p_mc_corrected, 0.5)
+
+    var_p = p_mc_corrected * (1.0 - p_mc_corrected) / n_toys
     se_mc = float(math.sqrt(var_p))
 
     return {
         "p_mc": p_mc,
+        "p_mc_raw": p_mc_raw,
         "p_mc_se": se_mc,
+        "p_resolution": 1.0 / (n_toys + 1.0),
         "p_r": p_r,
         "p_rstar": p_rs,
+        "n_toys": n_toys,
+        "n_exceedances": n_exceedances,
+        "b_profiled": b_tilde,
+        "precision_limited": precision_limited,
     }
+
 
 def asimov_Zs_onoff(
     s_true,
@@ -321,12 +353,7 @@ def median_expected_significance_onoff(
             seed=inner_seed,
         )
 
-        p = float(out["p_mc"])
-        res = 1.0 / float(max_toys)
-
-        p = min(max(p, res), 1.0 - res)
-
-        p_mc[i] = p
+        p_mc[i] = float(out["p_mc"])
 
     Z = norm.isf(p_mc)
 

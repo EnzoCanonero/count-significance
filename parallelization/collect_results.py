@@ -50,8 +50,6 @@ def collect_results(cfg):
     """
     outdir = cfg.get("outdir", "output")
     input_dirs = cfg.get("input_dirs", [outdir])
-    max_toys = int(cfg.get("max_toys", 2_000_000))
-    p_res = 1.0 / max_toys
 
     files = []
     for d in input_dirs:
@@ -64,11 +62,10 @@ def collect_results(cfg):
 
         for rec in job_data["points"]:
             key = (rec["mode"], _skey(rec["s_true"]), rec["param_idx"], rec["b_idx"])
-            p_mc = min(max(rec["p_mc"], p_res), 1.0 - p_res)
             if "Z_single" in rec:
                 Z_single = float(rec["Z_single"])
             else:
-                Z_single = norm.isf(p_mc)
+                Z_single = norm.isf(rec["p_mc"])
 
             if key not in groups:
                 groups[key] = {"meta": rec, "Z": []}
