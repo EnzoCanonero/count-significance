@@ -5,7 +5,7 @@ from numpy.polynomial.hermite import hermgauss
 from scipy.optimize import minimize_scalar
 from scipy.stats import norm, poisson
 
-from .common import norm_survival
+from .common import discovery_pvalue, discovery_z
 from .on_off import xlogy
 
 
@@ -329,8 +329,8 @@ def pvals_lognormal_numerical(
         )
     )
 
-    p_r = float(norm_survival(max(r_obs, 0.0)))
-    p_rs = float(norm_survival(max(rs_obs, 0.0)))
+    p_r = float(discovery_pvalue(r_obs))
+    p_rs = float(discovery_pvalue(rs_obs))
 
     if r_ref <= 0.0:
         return {
@@ -384,32 +384,24 @@ def asimov_Z_lognormal(
 
     nA = float(s_true + b0)
     theta_tilde_A = 0.0
-    z_r = max(
-        float(
-            r_stat_lognormal(
-                0.0,
-                nA,
-                theta_tilde_A,
-                b0,
-                sigma,
-                continuity_correction=continuity_correction_r,
-            )
-        ),
+    r_asimov = r_stat_lognormal(
         0.0,
+        nA,
+        theta_tilde_A,
+        b0,
+        sigma,
+        continuity_correction=continuity_correction_r,
     )
-    z_rstar = max(
-        float(
-            r_star_lognormal(
-                0.0,
-                nA,
-                theta_tilde_A,
-                b0,
-                sigma,
-                continuity_correction=continuity_correction_rstar,
-            )
-        ),
+    rstar_asimov = r_star_lognormal(
         0.0,
+        nA,
+        theta_tilde_A,
+        b0,
+        sigma,
+        continuity_correction=continuity_correction_rstar,
     )
+    z_r = float(discovery_z(r_asimov))
+    z_rstar = float(discovery_z(rstar_asimov))
 
     return {
         "Z_A_r": z_r,

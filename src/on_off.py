@@ -4,7 +4,7 @@ from typing import Dict, Tuple
 import numpy as np
 from scipy.stats import norm
 
-from .common import norm_survival
+from .common import discovery_pvalue, discovery_z, norm_survival
 
 
 def xlogy(a, b):
@@ -223,7 +223,7 @@ def required_toys_for_Z_precision(
     if min_toys > max_toys:
         min_toys = max_toys
 
-    Z = float(r_obs)
+    Z = float(discovery_z(r_obs))
     if not np.isfinite(Z) or Z <= 0.0:
         return int(min_toys)
 
@@ -268,8 +268,8 @@ def pvals_onoff(
     r_obs = float(r_stat_onoff(s, n, m, tau, continuity_correction=continuity_correction_r))
     rs_obs = float(r_star_onoff(s, n, m, tau, continuity_correction=continuity_correction_rstar))
 
-    p_r = norm_survival(max(r_obs, 0.0))
-    p_rs = norm_survival(max(rs_obs, 0.0))
+    p_r = float(discovery_pvalue(r_obs))
+    p_rs = float(discovery_pvalue(rs_obs))
 
     #Compute the profiled background yield under the signal hypothesis s
     b_tilde = b_profiled(s, n, m, tau)
@@ -319,12 +319,23 @@ def asimov_Zs_onoff(
     nA = float(s_true + b)  # on-region expected count
     mA = float(tau * b)     # off-region expected count
 
-    # Asimov Z-values for testing s = 0
-    z_r = max(float(r_stat_onoff(0.0, nA, mA, tau, continuity_correction=continuity_correction_r)), 0.0)
-    z_rss = max(
-        float(r_star_onoff(0.0, nA, mA, tau, continuity_correction=continuity_correction_rstar)),
+    # First compute the signed roots, then apply the discovery definition.
+    r_asimov = r_stat_onoff(
         0.0,
+        nA,
+        mA,
+        tau,
+        continuity_correction=continuity_correction_r,
     )
+    rstar_asimov = r_star_onoff(
+        0.0,
+        nA,
+        mA,
+        tau,
+        continuity_correction=continuity_correction_rstar,
+    )
+    z_r = float(discovery_z(r_asimov))
+    z_rss = float(discovery_z(rstar_asimov))
 
     return {
         "Z_A_r": z_r,
