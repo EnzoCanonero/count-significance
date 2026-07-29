@@ -8,6 +8,7 @@ import math
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import yaml
@@ -34,7 +35,7 @@ SCHEMA_VERSION = 1
 
 
 # Read the frozen campaign inputs and this worker's job identifiers.
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run one batch job for the on/off median-significance scan."
     )
@@ -48,7 +49,7 @@ def parse_args():
 
 
 # Read the frozen YAML configuration and hash its exact contents.
-def load_config(config_path):
+def load_config(config_path: Path) -> tuple[dict[str, Any], str]:
     raw_config = config_path.read_bytes()
     config = yaml.safe_load(raw_config.decode("utf-8"))
     if not isinstance(config, dict):
@@ -59,7 +60,7 @@ def load_config(config_path):
 
 
 # Parse and validate a positive integer setting.
-def positive_integer(value, name):
+def positive_integer(value: Any, name: str) -> int:
     if isinstance(value, bool):
         raise ValueError(f"{name} must be a positive integer")
     try:
@@ -73,7 +74,11 @@ def positive_integer(value, name):
 
 
 # Read a non-empty vector of finite configuration values.
-def finite_vector(config, name, positive=False):
+def finite_vector(
+    config: dict[str, Any],
+    name: str,
+    positive: bool = False,
+) -> np.ndarray:
     values = config.get(name)
     if not isinstance(values, list) or not values:
         raise ValueError(f"{name} must be a non-empty list")
@@ -92,7 +97,7 @@ def finite_vector(config, name, positive=False):
 
 
 # Parse and validate one finite numeric setting.
-def finite_number(value, name):
+def finite_number(value: Any, name: str) -> float:
     if isinstance(value, bool):
         raise ValueError(f"{name} must be a number")
     try:
@@ -105,7 +110,7 @@ def finite_number(value, name):
 
 
 # Hash the frozen statistical source and this worker.
-def frozen_source_sha256():
+def frozen_source_sha256() -> str:
     source_files = [
         path
         for path in (ROOT / "src").rglob("*")
@@ -128,7 +133,11 @@ def frozen_source_sha256():
 
 
 # Validate the selected signal partition and return its worker settings.
-def read_job_settings(config, signal_index, job_id):
+def read_job_settings(
+    config: dict[str, Any],
+    signal_index: int,
+    job_id: int,
+) -> dict[str, Any]:
     if "batch_mc" not in config or not isinstance(config["batch_mc"], dict):
         raise ValueError("The config must contain a batch_mc mapping")
 
@@ -195,7 +204,11 @@ def read_job_settings(config, signal_index, job_id):
     }
 
 
-def compute_points(config, settings, job_id):
+def compute_points(
+    config: dict[str, Any],
+    settings: dict[str, Any],
+    job_id: int,
+) -> list[dict[str, Any]]:
     """Generate this job's pseudo-experiments on the two scan grids.
 
     Counts follow n ~ Pois(s + b) and m ~ Pois(tau b). For fixed relative
@@ -296,7 +309,7 @@ def compute_points(config, settings, job_id):
 
 
 # Write the result as JSON, replacing the target only after a complete write.
-def write_output(output_path, data):
+def write_output(output_path: Path, data: dict[str, Any]) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = output_path.with_name(f".{output_path.name}.{os.getpid()}.tmp")
 
@@ -311,7 +324,7 @@ def write_output(output_path, data):
 
 
 # Run one worker and save its provenance together with all scan points.
-def main():
+def main() -> None:
     args = parse_args()
     config_path = Path(args.config)
     output_path = Path(args.output)

@@ -4,6 +4,8 @@
 import argparse
 import sys
 from pathlib import Path
+from typing import Any, Optional
+
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
@@ -13,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.common import load_yaml
+from src.common import ScalarOrArray, load_yaml
 from src.on import pvals_on
 
 
@@ -21,7 +23,7 @@ PLOT_FIGSIZE = (6.5, 6.5)
 
 
 # Apply the common style used by the observed-significance plots.
-def _configure_plot_style():
+def _configure_plot_style() -> None:
     plt.rcParams.update(
         {
             "font.size": 16,
@@ -35,14 +37,14 @@ def _configure_plot_style():
 
 
 # Apply the final tick and spine styling to an axis.
-def _finish_axes(ax):
+def _finish_axes(ax) -> None:
     ax.tick_params(axis="both", which="major", labelsize=16, width=1.3, length=6)
     ax.tick_params(axis="both", which="minor", width=1.0, length=3)
     for spine in ax.spines.values():
         spine.set_linewidth(1.2)
 
 
-def _z_from_p(p):
+def _z_from_p(p: ScalarOrArray) -> ScalarOrArray:
     """Convert an upper-tail p-value to Z = Phi^(-1)(1 - p)."""
     return norm.isf(np.clip(np.asarray(p, dtype=float), 1e-300, 1.0 - 1e-16))
 
@@ -53,7 +55,11 @@ def _correction_suffix(continuity_corrected: bool) -> str:
 
 
 # Set readable limits for an observed-count significance panel.
-def _set_count_significance_limits(ax, n_vals: np.ndarray, *z_arrays: np.ndarray):
+def _set_count_significance_limits(
+    ax,
+    n_vals: np.ndarray,
+    *z_arrays: np.ndarray,
+) -> None:
     n_vals = np.asarray(n_vals, dtype=float)
     if n_vals.size == 0:
         return
@@ -99,11 +105,11 @@ def compute_pvalue_scans(
     s0: float,
     b: float,
     target_z: float = 5.0,
-    max_observed_count: int = None,
+    max_observed_count: Optional[int] = None,
     trim_to_discovery_tail: bool = True,
     continuity_correction_r: bool = False,
     continuity_correction_rstar: bool = True,
-):
+) -> dict[str, Any]:
     """Scan the one-sided discovery tail for fixed signal and background.
 
     The inclusive Poisson tail is compared with the q0 and q0* asymptotic
@@ -146,11 +152,11 @@ def compute_pvalue_scans(
 
 # Write the p-value scan panels.
 def write_pvalue_pdf(
-    results: list,
+    results: list[dict[str, Any]],
     out_pdf: Path,
-    statistics: list,
+    statistics: list[str],
     continuity_correction_rstar: bool,
-):
+) -> None:
     rstar_suffix = _correction_suffix(continuity_correction_rstar)
     with PdfPages(out_pdf) as pdf:
         for res in results:
@@ -206,11 +212,11 @@ def write_pvalue_pdf(
 
 # Convert the p-values to significance and write the scan panels.
 def write_significance_pdf(
-    results: list,
+    results: list[dict[str, Any]],
     out_pdf: Path,
-    statistics: list,
+    statistics: list[str],
     continuity_correction_rstar: bool,
-):
+) -> None:
     rstar_suffix = _correction_suffix(continuity_correction_rstar)
     with PdfPages(out_pdf) as pdf:
         for res in results:
@@ -272,7 +278,7 @@ def write_significance_pdf(
 
 
 # Load the configuration, calculate the scans, and write both plot sets.
-def main(cfg_path: str):
+def main(cfg_path: str) -> None:
     _configure_plot_style()
 
     cfg = load_yaml(cfg_path)

@@ -9,6 +9,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any, Optional
 
 import numpy as np
 import yaml
@@ -38,7 +39,7 @@ WORKER_NAME = "run_onoff_medsig_job.py"
 
 
 # Read the campaign name to collect from the runs directory.
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Collect one complete HTCondor median-significance run."
     )
@@ -47,12 +48,12 @@ def parse_args():
 
 
 # Return the SHA-256 checksum of one file.
-def file_sha256(path):
+def file_sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 # Hash the frozen statistical source and worker stored with the campaign.
-def frozen_source_sha256(input_dir):
+def frozen_source_sha256(input_dir: Path) -> str:
     source_files = [
         path
         for path in (input_dir / "src").rglob("*")
@@ -75,7 +76,7 @@ def frozen_source_sha256(input_dir):
 
 
 # Require a clean repository and return its current commit.
-def current_commit():
+def current_commit() -> str:
     commit_result = subprocess.run(
         ["git", "rev-parse", "HEAD"],
         cwd=ROOT,
@@ -96,7 +97,7 @@ def current_commit():
 
 
 # Read a JSON file and report malformed input as a validation error.
-def load_json(path):
+def load_json(path: Path) -> Any:
     try:
         with path.open("r", encoding="utf-8") as input_file:
             return json.load(input_file)
@@ -105,7 +106,7 @@ def load_json(path):
 
 
 # Read the frozen YAML campaign configuration.
-def load_config(path):
+def load_config(path: Path) -> dict[str, Any]:
     try:
         config = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError) as error:
@@ -117,7 +118,7 @@ def load_config(path):
 
 
 # Convert a signal value into the directory tag used by the submitter.
-def signal_tag(s_true):
+def signal_tag(s_true: float) -> str:
     value = (
         f"{float(s_true):g}"
         .replace("-", "m")
@@ -128,7 +129,7 @@ def signal_tag(s_true):
 
 
 # Parse and validate a positive integer setting.
-def positive_integer(value, name):
+def positive_integer(value: Any, name: str) -> int:
     if isinstance(value, bool):
         raise ValueError(f"{name} must be a positive integer")
     try:
@@ -142,7 +143,7 @@ def positive_integer(value, name):
 
 
 # Parse and validate one finite numeric setting.
-def finite_number(value, name):
+def finite_number(value: Any, name: str) -> float:
     if isinstance(value, bool):
         raise ValueError(f"{name} must be a number")
     try:
@@ -155,7 +156,11 @@ def finite_number(value, name):
 
 
 # Read a non-empty vector of finite configuration values.
-def finite_vector(config, name, positive=False):
+def finite_vector(
+    config: dict[str, Any],
+    name: str,
+    positive: bool = False,
+) -> np.ndarray:
     values = config.get(name)
     if not isinstance(values, list) or not values:
         raise ValueError(f"{name} must be a non-empty YAML list")
@@ -174,7 +179,7 @@ def finite_vector(config, name, positive=False):
 
 
 # Validate the shared scan definition and return its batch settings.
-def read_batch_settings(config):
+def read_batch_settings(config: dict[str, Any]) -> dict[str, Any]:
     batch = config.get("batch_mc")
     if not isinstance(batch, dict):
         raise ValueError("The config must contain a batch_mc mapping")
@@ -266,7 +271,13 @@ def read_batch_settings(config):
 
 
 # Match the manifest against the frozen inputs and current repository state.
-def validate_manifest(manifest, run_name, config_hash, source_hash, settings):
+def validate_manifest(
+    manifest: Any,
+    run_name: str,
+    config_hash: str,
+    source_hash: str,
+    settings: dict[str, Any],
+) -> None:
     if not isinstance(manifest, dict):
         raise ValueError("The run manifest must contain a mapping")
     if manifest.get("schema_version") != SCHEMA_VERSION:
@@ -305,12 +316,12 @@ def validate_manifest(manifest, run_name, config_hash, source_hash, settings):
 
 
 # Compare stored floating-point values at validation precision.
-def close_enough(actual, expected):
+def close_enough(actual: Any, expected: Any) -> bool:
     return math.isclose(float(actual), float(expected), rel_tol=1e-12, abs_tol=1e-12)
 
 
 # Read a field that must be an integer rather than a boolean.
-def require_integer(record, key):
+def require_integer(record: dict[str, Any], key: str) -> int:
     value = record.get(key)
     if isinstance(value, bool) or not isinstance(value, int):
         raise ValueError(f"{key} must be an integer")
@@ -318,14 +329,19 @@ def require_integer(record, key):
 
 
 # Read a field that must contain a finite number.
-def require_finite(record, key):
+def require_finite(record: dict[str, Any], key: str) -> float:
     value = float(record[key])
     if not math.isfinite(value):
         raise ValueError(f"{key} must be finite")
     return value
 
 
-def validate_mc_result(point, job, r_obs, expected_b_profiled):
+def validate_mc_result(
+    point: dict[str, Any],
+    job: dict[str, Any],
+    r_obs: float,
+    expected_b_profiled: float,
+) -> tuple[float, int, int, bool]:
     """Validate the Monte Carlo p-value and return its significance.
 
     For K exceedances in N toys, the stored estimates are K/N and the corrected
@@ -392,7 +408,11 @@ def validate_mc_result(point, job, r_obs, expected_b_profiled):
 
 
 # Validate one scan point against its grid coordinates and replayed counts.
-def validate_point(point, expected, job):
+def validate_point(
+    point: dict[str, Any],
+    expected: dict[tuple[int, str, int, int], dict[str, Any]],
+    job: dict[str, Any],
+) -> tuple[tuple[int, str, int, int], tuple[float, int, int, bool]]:
     replica = require_integer(point, "replica")
     param_idx = require_integer(point, "param_idx")
     b_idx = require_integer(point, "b_idx")
@@ -428,7 +448,11 @@ def validate_point(point, expected, job):
     return identity, validate_mc_result(point, job, r_obs, expected_b_profiled)
 
 
-def expected_points_for_job(settings, job, job_id):
+def expected_points_for_job(
+    settings: dict[str, Any],
+    job: dict[str, Any],
+    job_id: int,
+) -> dict[tuple[int, str, int, int], dict[str, Any]]:
     """Replay the worker's pseudo-experiments to validate counts and scan order.
 
     The replay uses n ~ Pois(s + b), m ~ Pois(tau b), and
@@ -472,14 +496,14 @@ def expected_points_for_job(settings, job, job_id):
 
 # Match a result file to the submitted code, config, signal and job.
 def validate_provenance(
-    provenance,
-    run_name,
-    commit,
-    config_hash,
-    source_hash,
-    job,
-    job_id,
-):
+    provenance: dict[str, Any],
+    run_name: str,
+    commit: str,
+    config_hash: str,
+    source_hash: str,
+    job: dict[str, Any],
+    job_id: int,
+) -> None:
     expected = {
         "run": run_name,
         "commit": commit,
@@ -496,15 +520,15 @@ def validate_provenance(
 
 # Validate one complete worker result and return its significance samples.
 def validate_result_file(
-    result_path,
-    run_name,
-    commit,
-    config_hash,
-    source_hash,
-    settings,
-    job,
-    job_id,
-):
+    result_path: Path,
+    run_name: str,
+    commit: str,
+    config_hash: str,
+    source_hash: str,
+    settings: dict[str, Any],
+    job: dict[str, Any],
+    job_id: int,
+) -> list[tuple[str, int, int, float, int, int, bool]]:
     expected_points = expected_points_for_job(settings, job, job_id)
     result = load_json(result_path)
     if not isinstance(result, dict):
@@ -568,7 +592,12 @@ def validate_result_file(
 
 
 # Add one validated p-value to the Monte Carlo diagnostics.
-def update_summary(summary, n_toys, n_exceedances, precision_limited):
+def update_summary(
+    summary: dict[str, Any],
+    n_toys: int,
+    n_exceedances: int,
+    precision_limited: bool,
+) -> None:
     summary["count"] += 1
     if summary["min_toys"] is None:
         summary["min_toys"] = n_toys
@@ -583,7 +612,17 @@ def update_summary(summary, n_toys, n_exceedances, precision_limited):
 
 
 # Validate every expected result file and group samples by physical scan point.
-def collect_results(run_dir, run_name, manifest, config_hash, source_hash, settings):
+def collect_results(
+    run_dir: Path,
+    run_name: str,
+    manifest: dict[str, Any],
+    config_hash: str,
+    source_hash: str,
+    settings: dict[str, Any],
+) -> tuple[
+    dict[tuple[str, int, int, int], list[float]],
+    dict[int, dict[str, Any]],
+]:
     groups = {}
     diagnostics = {}
     commit = manifest["commit"]
@@ -672,7 +711,10 @@ def collect_results(run_dir, run_name, manifest, config_hash, source_hash, setti
     return groups, diagnostics
 
 
-def build_plot_results(groups, settings):
+def build_plot_results(
+    groups: dict[tuple[str, int, int, int], list[float]],
+    settings: dict[str, Any],
+) -> dict[str, dict[str, np.ndarray]]:
     """Build the Asimov and Monte Carlo significance grids used by the plotter.
 
     Each scan point stores the first-order and corrected Asimov significances,
@@ -749,7 +791,11 @@ def build_plot_results(groups, settings):
 
 
 # Require a safe PDF output path below plots/.
-def validate_output_path(value, name, signal_template=False):
+def validate_output_path(
+    value: Any,
+    name: str,
+    signal_template: bool = False,
+) -> None:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{name} must be a non-empty path")
     if signal_template and "{s}" not in value:
@@ -768,7 +814,9 @@ def validate_output_path(value, name, signal_template=False):
 
 
 # Validate the selected curves, display limit and output names.
-def read_plot_options(config):
+def read_plot_options(
+    config: dict[str, Any],
+) -> tuple[list[str], list[str], Optional[float]]:
     selected_statistics = config.get("statistics", ["r", "rstar"])
     selected_mc_summaries = config.get("mc_summaries", ["median"])
     if not isinstance(selected_statistics, list):
@@ -808,13 +856,16 @@ def read_plot_options(config):
 
 
 # Resolve a configured output path relative to the repository.
-def rooted_output(value):
+def rooted_output(value: str) -> Path:
     path = Path(value)
     return path if path.is_absolute() else ROOT / path
 
 
 # Report toy-count ranges and precision limits for each signal.
-def print_diagnostics(settings, diagnostics):
+def print_diagnostics(
+    settings: dict[str, Any],
+    diagnostics: dict[int, dict[str, Any]],
+) -> None:
     print("Validated Monte Carlo diagnostics:")
     for job in settings["jobs"]:
         summary = diagnostics[job["signal_index"]]
@@ -829,7 +880,7 @@ def print_diagnostics(settings, diagnostics):
 
 
 # Validate a complete campaign before writing any final plots.
-def main():
+def main() -> None:
     args = parse_args()
     if not RUN_NAME_PATTERN.fullmatch(args.run):
         raise ValueError("Run names may contain only letters, numbers, '.', '_' and '-'")

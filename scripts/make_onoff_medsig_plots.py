@@ -4,6 +4,8 @@
 import argparse
 import sys
 from pathlib import Path
+from typing import Optional
+
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.lines import Line2D
@@ -26,7 +28,7 @@ PLOT_ADJUST = {
 
 
 # Apply the common style used by the median-significance plots.
-def configure_plot_style():
+def configure_plot_style() -> None:
     plt.rcParams.update(
         {
             "font.size": 16,
@@ -41,7 +43,7 @@ def configure_plot_style():
 
 
 # Apply the final tick and spine styling to an axis.
-def _finish_axes(ax):
+def _finish_axes(ax) -> None:
     ax.tick_params(axis="both", which="major", labelsize=16, width=1.3, length=6)
     ax.tick_params(axis="both", which="minor", width=1.0, length=3)
     for spine in ax.spines.values():
@@ -49,12 +51,12 @@ def _finish_axes(ax):
 
 
 # Apply the fixed margins used by single-panel figures.
-def _finish_figure(fig):
+def _finish_figure(fig) -> None:
     fig.subplots_adjust(**PLOT_ADJUST)
 
 
 # Choose a y-axis maximum with a small margin above finite values.
-def _medsig_ymax(*arrays) -> float:
+def _medsig_ymax(*arrays: np.ndarray) -> float:
     values = np.concatenate([np.ravel(np.asarray(array, dtype=float)) for array in arrays])
     values = values[np.isfinite(values)]
     if values.size == 0:
@@ -63,7 +65,7 @@ def _medsig_ymax(*arrays) -> float:
 
 
 # Apply the common axes layout for median-significance plots.
-def _style_medsig_axes(ax, b_values: np.ndarray, y_max: float, y_label: str):
+def _style_medsig_axes(ax, b_values: np.ndarray, y_max: float, y_label: str) -> None:
     ax.set_box_aspect(1)
     ax.set_xscale("log")
     ax.set_xlim(float(b_values[0]), float(b_values[-1]))
@@ -87,14 +89,20 @@ def _naive_z_fixed_rel_sig(s_true: float, b_values: np.ndarray, rel_sig: float) 
 
 
 # Use the configured display maximum, or infer one from the plotted values.
-def _display_y_max(values, z_display_max):
+def _display_y_max(
+    values: list[np.ndarray],
+    z_display_max: Optional[float],
+) -> float:
     if z_display_max is not None:
         return float(z_display_max)
     return _medsig_ymax(*values)
 
 
 # Mask Monte Carlo markers above the display range without changing the inputs.
-def mask_mc_for_display(results, z_display_max):
+def mask_mc_for_display(
+    results: dict[str, dict[str, np.ndarray]],
+    z_display_max: Optional[float],
+) -> dict[str, dict[str, np.ndarray]]:
     if z_display_max is None:
         return results
 
@@ -111,7 +119,12 @@ def mask_mc_for_display(results, z_display_max):
 
 
 # Collect the statistical curves that determine the displayed y range.
-def _selected_y_values(scan_results, s_idx, statistics, mc_summaries):
+def _selected_y_values(
+    scan_results: dict[str, np.ndarray],
+    s_idx: int,
+    statistics: list[str],
+    mc_summaries: list[str],
+) -> list[np.ndarray]:
     # Exclude the naive comparison so it can run above the frame.
     values = []
     if "r" in statistics:
@@ -126,7 +139,7 @@ def _selected_y_values(scan_results, s_idx, statistics, mc_summaries):
 
 
 # Select the y-axis label that matches the requested Monte Carlo summaries.
-def _medsig_y_label(mc_summaries: list) -> str:
+def _medsig_y_label(mc_summaries: list[str]) -> str:
     if "median" in mc_summaries and "mean" not in mc_summaries:
         return r"$\operatorname{med}[Z\mid s]$"
     return r"$Z$"
@@ -138,7 +151,7 @@ def _format_output_path(template: str, s_true: float) -> Path:
 
 
 # Format a number for use in a file name.
-def _fmt(x):
+def _fmt(x: float) -> str:
     return f"{x:g}".replace(".", "p")
 
 
@@ -153,7 +166,7 @@ def compute_median_significance(
     min_toys: int,
     max_toys: int,
     seed: int,
-):
+) -> dict[str, dict[str, np.ndarray]]:
     """Compute Asimov and Monte Carlo significance grids for the on/off model.
 
     The Asimov counts are n_A = s + b and m_A = tau b. The scans keep either
@@ -207,12 +220,12 @@ def write_combined_tau_plots(
     s_vec: np.ndarray,
     tau_vec: np.ndarray,
     b_values: np.ndarray,
-    results: dict,
+    results: dict[str, dict[str, np.ndarray]],
     out_template: str,
-    statistics: list,
-    mc_summaries: list,
-    z_display_max: float = None,
-):
+    statistics: list[str],
+    mc_summaries: list[str],
+    z_display_max: Optional[float] = None,
+) -> None:
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
     fixed_tau = results["fixed_tau"]
 
@@ -243,12 +256,12 @@ def write_combined_rel_sig_plots(
     s_vec: np.ndarray,
     rel_sig_vec: np.ndarray,
     b_values: np.ndarray,
-    results: dict,
+    results: dict[str, dict[str, np.ndarray]],
     out_template: str,
-    statistics: list,
-    mc_summaries: list,
-    z_display_max: float = None,
-):
+    statistics: list[str],
+    mc_summaries: list[str],
+    z_display_max: Optional[float] = None,
+) -> None:
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
     fixed_rel_sig = results["fixed_rel_sig"]
 
@@ -281,12 +294,12 @@ def write_combined_grid_plot(
     rel_sig_vec: np.ndarray,
     b_values_tau: np.ndarray,
     b_values_rel_sig: np.ndarray,
-    results: dict,
+    results: dict[str, dict[str, np.ndarray]],
     out_pdf: Path,
-    statistics: list,
-    mc_summaries: list,
-    z_display_max: float = None,
-):
+    statistics: list[str],
+    mc_summaries: list[str],
+    z_display_max: Optional[float] = None,
+) -> None:
     n_rows = len(s_vec)
     if n_rows == 0:
         raise ValueError("s_vec must contain at least one signal value")
@@ -335,14 +348,14 @@ def write_median_significance_pdfs(
     rel_sig_vec: np.ndarray,
     b_values_tau: np.ndarray,
     b_values_rel_sig: np.ndarray,
-    results: dict,
+    results: dict[str, dict[str, np.ndarray]],
     out_tau_template: str,
     out_rel_sig_template: str,
     out_grid_pdf: Path,
-    statistics: list,
-    mc_summaries: list,
-    z_display_max: float = None,
-):
+    statistics: list[str],
+    mc_summaries: list[str],
+    z_display_max: Optional[float] = None,
+) -> None:
     write_combined_tau_plots(
         s_vec=s_vec,
         tau_vec=tau_vec,
@@ -384,12 +397,12 @@ def _plot_combined_tau_panel(
     s_true: float,
     tau_vec: np.ndarray,
     b_values: np.ndarray,
-    scan_results: dict,
-    colors: list,
-    statistics: list,
-    mc_summaries: list,
-    z_display_max: float = None,
-):
+    scan_results: dict[str, np.ndarray],
+    colors: list[str],
+    statistics: list[str],
+    mc_summaries: list[str],
+    z_display_max: Optional[float] = None,
+) -> None:
     for tau_idx, tau in enumerate(tau_vec):
         color = colors[tau_idx % len(colors)]
         if "r" in statistics:
@@ -451,12 +464,12 @@ def _plot_combined_rel_sig_panel(
     s_true: float,
     rel_sig_vec: np.ndarray,
     b_values: np.ndarray,
-    scan_results: dict,
-    colors: list,
-    statistics: list,
-    mc_summaries: list,
-    z_display_max: float = None,
-):
+    scan_results: dict[str, np.ndarray],
+    colors: list[str],
+    statistics: list[str],
+    mc_summaries: list[str],
+    z_display_max: Optional[float] = None,
+) -> None:
     for rel_sig_idx, rel_sig in enumerate(rel_sig_vec):
         color = colors[rel_sig_idx % len(colors)]
         if "r" in statistics:
@@ -515,12 +528,12 @@ def _plot_combined_rel_sig_panel(
 def _add_combined_legends(
     ax,
     s_true: float,
-    labels: list,
-    colors: list,
+    labels: list[str],
+    colors: list[str],
     n_configs: int,
-    statistics: list,
-    mc_summaries: list,
-):
+    statistics: list[str],
+    mc_summaries: list[str],
+) -> None:
     stat_handles = []
     if "r" in statistics:
         stat_handles.append(Line2D([0], [0], color="0.15", linestyle="-", label=r"Asimov $q_0$"))
@@ -611,7 +624,7 @@ def _add_combined_legends(
 
 
 # Load the configuration, calculate the grids, and write the plots.
-def main(cfg_path: str):
+def main(cfg_path: str) -> None:
     configure_plot_style()
 
     cfg = load_yaml(cfg_path)
