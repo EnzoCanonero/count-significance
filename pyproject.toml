@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "medsig"
+name = "count-significance"
 version = "0.2.0"
-description = "Higher-order discovery significance for Poisson counting experiments"
+description = "Accurate significance and p-values for count data"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/EnzoCanonero/medsig"
+Repository = "https://github.com/EnzoCanonero/count-significance"
 
 [tool.setuptools]
 package-dir = {"" = "."}

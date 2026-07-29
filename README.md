@@ -1,10 +1,10 @@
-# medsig
+# Count Significance
 
-Higher-order discovery significance for Poisson counting experiments.
+Accurate significance and p-values for count data.
 
-`medsig` contains the statistical calculations and reproducible plotting
-workflows for the companion manuscript *Discovery Sensitivity for a Counting
-Experiment with Background Uncertainty*. It compares first-order
+Count Significance contains the statistical calculations and reproducible
+plotting workflows for the companion manuscript *Discovery Sensitivity for a
+Counting Experiment with Background Uncertainty*. It compares first-order
 profile-likelihood results with the Barndorff–Nielsen $r^\ast$ correction, exact or
 profiled reference calculations, and Monte Carlo estimates of the median
 discovery significance.
@@ -334,7 +334,7 @@ the dependencies above. If worker nodes need an activation script, provide an
 absolute path that is visible on those nodes:
 
 ```bash
-export MEDSIG_SETUP_SCRIPT=/absolute/path/to/setup_medsig_env.sh
+export COUNT_SIGNIFICANCE_SETUP_SCRIPT=/absolute/path/to/setup_count_significance_env.sh
 ```
 
 From a clean Git checkout, submit a uniquely named campaign:
@@ -420,7 +420,7 @@ number of toys actually generated, not on the configured maximum.
 ## Repository layout
 
 ```text
-medsig/
+count-significance/
 ├── src/          statistical definitions and numerical routines
 ├── scripts/      plotting, submission, worker and collection commands
 ├── config/       paper YAML files and the generic HTCondor description

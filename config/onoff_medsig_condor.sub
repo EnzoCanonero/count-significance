@@ -1,4 +1,4 @@
-# Generic Condor description for one signal in an on/off medsig campaign.
+# Generic Condor description for one signal in an on/off median-significance campaign.
 # The submission helper supplies all macros used below.
 
 universe                  = vanilla
@@ -18,7 +18,7 @@ log                       = runs/$(run_name)/logs/$(signal_tag)_job_$(Process).l
 
 request_cpus              = 1
 request_memory            = 4096MB
-getenv                    = MEDSIG_SETUP_SCRIPT
+getenv                    = COUNT_SIGNIFICANCE_SETUP_SCRIPT
 
 on_exit_hold              = (ExitBySignal == True) || (ExitCode != 0)
 

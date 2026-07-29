@@ -81,13 +81,13 @@ def validate_run_name(run_name: str) -> None:
 
 # Check the optional cluster environment setup script.
 def validate_setup_script() -> None:
-    setup_script = os.environ.get("MEDSIG_SETUP_SCRIPT")
+    setup_script = os.environ.get("COUNT_SIGNIFICANCE_SETUP_SCRIPT")
     if not setup_script:
         return
 
     setup_path = Path(setup_script)
     if not setup_path.is_absolute():
-        raise ValueError("MEDSIG_SETUP_SCRIPT must be an absolute path")
+        raise ValueError("COUNT_SIGNIFICANCE_SETUP_SCRIPT must be an absolute path")
     if not setup_path.is_file():
         raise FileNotFoundError(f"Environment setup script not found: {setup_path}")
 
