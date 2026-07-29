@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compute and render the on/off median-significance paper plots."""
+"""Create the on/off median-significance plots used in the paper."""
 
 import argparse
 import sys
@@ -25,6 +25,7 @@ PLOT_ADJUST = {
 }
 
 
+# Apply the common style used by the median-significance plots.
 def configure_plot_style():
     plt.rcParams.update(
         {
@@ -39,6 +40,7 @@ def configure_plot_style():
     )
 
 
+# Apply the final tick and spine styling to an axis.
 def _finish_axes(ax):
     ax.tick_params(axis="both", which="major", labelsize=16, width=1.3, length=6)
     ax.tick_params(axis="both", which="minor", width=1.0, length=3)
@@ -46,10 +48,12 @@ def _finish_axes(ax):
         spine.set_linewidth(1.2)
 
 
+# Apply the fixed margins used by single-panel figures.
 def _finish_figure(fig):
     fig.subplots_adjust(**PLOT_ADJUST)
 
 
+# Choose a y-axis maximum with a small margin above finite values.
 def _medsig_ymax(*arrays) -> float:
     values = np.concatenate([np.ravel(np.asarray(array, dtype=float)) for array in arrays])
     values = values[np.isfinite(values)]
@@ -58,6 +62,7 @@ def _medsig_ymax(*arrays) -> float:
     return max(float(np.max(values)) * 1.04, 1.0)
 
 
+# Apply the common axes layout for median-significance plots.
 def _style_medsig_axes(ax, b_values: np.ndarray, y_max: float, y_label: str):
     ax.set_box_aspect(1)
     ax.set_xscale("log")
@@ -70,24 +75,26 @@ def _style_medsig_axes(ax, b_values: np.ndarray, y_max: float, y_label: str):
 
 
 def _naive_z_fixed_tau(s_true: float, b_values: np.ndarray, tau: float) -> np.ndarray:
+    """Evaluate Z = s/sqrt(b + sigma_b^2) with sigma_b^2 = b/tau."""
     sigma_b2 = b_values / float(tau)
     return float(s_true) / np.sqrt(b_values + sigma_b2)
 
 
 def _naive_z_fixed_rel_sig(s_true: float, b_values: np.ndarray, rel_sig: float) -> np.ndarray:
+    """Evaluate Z = s/sqrt(b + sigma_b^2) for fixed sigma_b/b."""
     sigma_b2 = (float(rel_sig) * b_values) ** 2
     return float(s_true) / np.sqrt(b_values + sigma_b2)
 
 
+# Use the configured display maximum, or infer one from the plotted values.
 def _display_y_max(values, z_display_max):
-    """Return the requested graphical maximum, or derive one from the values."""
     if z_display_max is not None:
         return float(z_display_max)
     return _medsig_ymax(*values)
 
 
+# Mask Monte Carlo markers above the display range without changing the inputs.
 def mask_mc_for_display(results, z_display_max):
-    """Return plot-ready results without modifying the calculated arrays."""
     if z_display_max is None:
         return results
 
@@ -103,12 +110,9 @@ def mask_mc_for_display(results, z_display_max):
     return display_results
 
 
+# Collect the statistical curves that determine the displayed y range.
 def _selected_y_values(scan_results, s_idx, statistics, mc_summaries):
-    """Collect selected result curves when setting the y range.
-
-    The naive comparison is deliberately excluded so that it may run above
-    the frame without compressing the statistical curves.
-    """
+    # Exclude the naive comparison so it can run above the frame.
     values = []
     if "r" in statistics:
         values.append(scan_results["Z_A_r"][s_idx])
@@ -121,16 +125,19 @@ def _selected_y_values(scan_results, s_idx, statistics, mc_summaries):
     return values
 
 
+# Select the y-axis label that matches the requested Monte Carlo summaries.
 def _medsig_y_label(mc_summaries: list) -> str:
     if "median" in mc_summaries and "mean" not in mc_summaries:
         return r"$\operatorname{med}[Z\mid s]$"
     return r"$Z$"
 
 
+# Fill the signal-strength field in an output path template.
 def _format_output_path(template: str, s_true: float) -> Path:
     return Path(str(template).format(s=_fmt(s_true)))
 
 
+# Format a number for use in a file name.
 def _fmt(x):
     return f"{x:g}".replace(".", "p")
 
@@ -147,13 +154,10 @@ def compute_median_significance(
     max_toys: int,
     seed: int,
 ):
-    """
-    Compute Asimov and MC-median Z grids for the uncertain-background case
-    with ``expected_significance_onoff``.
+    """Compute Asimov and Monte Carlo significance grids for the on/off model.
 
-    Return the fixed-tau and fixed-relative-uncertainty results as two named
-    dictionaries. Each dictionary comes directly from
-    expected_significance_onoff.
+    The Asimov counts are n_A = s + b and m_A = tau b. The scans keep either
+    tau fixed or sigma_b/b fixed through tau = 1 / [(sigma_b/b)^2 b].
     """
     seed = int(seed)
     mc_sigrel_z = float(mc_sigrel_z)
@@ -161,7 +165,7 @@ def compute_median_significance(
     max_toys = int(max_toys)
     n_outer = int(n_outer)
 
-    # Vectorised grids for fixed-τ scans: shape (S, T, B_tau)
+    # Build the fixed-tau grid with shape (signal, tau, background).
     s_grid_tau = s_vec[:, None, None]
     b_grid_tau = b_values_tau[None, None, :]
     tau_grid = tau_vec[None, :, None]
@@ -176,10 +180,11 @@ def compute_median_significance(
         seed=seed,
     )
 
-    # Vectorised grids for fixed relative uncertainty: tau(b) = 1/(rel_sig^2 * b)
+    # For fixed relative uncertainty, tau(b) = 1 / (rel_sig^2 b).
     s_grid_sig = s_vec[:, None, None]
     b_grid_rel_sig = b_values_rel_sig[None, None, :]
     tau_grid_rel_sig = 1.0 / (rel_sig_vec[None, :, None] ** 2 * b_grid_rel_sig)
+    # Use an independent random stream for the second Monte Carlo scan.
     res_rel_sig = expected_significance_onoff(
         s_true=s_grid_sig,
         b=b_grid_rel_sig,
@@ -188,7 +193,7 @@ def compute_median_significance(
         sigrel=mc_sigrel_z,
         min_toys=min_toys,
         max_toys=max_toys,
-        seed=seed + 1,  # decorrelate from fixed-tau call
+        seed=seed + 1,
     )
 
     return {
@@ -197,6 +202,7 @@ def compute_median_significance(
     }
 
 
+# Write one fixed-tau panel for each signal strength.
 def write_combined_tau_plots(
     s_vec: np.ndarray,
     tau_vec: np.ndarray,
@@ -207,7 +213,6 @@ def write_combined_tau_plots(
     mc_summaries: list,
     z_display_max: float = None,
 ):
-    """Save one fixed-tau combined panel per signal strength."""
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
     fixed_tau = results["fixed_tau"]
 
@@ -233,6 +238,7 @@ def write_combined_tau_plots(
         print(f"Saved combined fixed-tau plot to: {out_pdf.resolve()}")
 
 
+# Write one fixed-relative-uncertainty panel for each signal strength.
 def write_combined_rel_sig_plots(
     s_vec: np.ndarray,
     rel_sig_vec: np.ndarray,
@@ -243,7 +249,6 @@ def write_combined_rel_sig_plots(
     mc_summaries: list,
     z_display_max: float = None,
 ):
-    """Save one fixed-relative-uncertainty combined panel per signal strength."""
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
     fixed_rel_sig = results["fixed_rel_sig"]
 
@@ -269,6 +274,7 @@ def write_combined_rel_sig_plots(
         print(f"Saved combined fixed-relative-uncertainty plot to: {out_pdf.resolve()}")
 
 
+# Write all fixed-tau and fixed-relative-uncertainty panels on one page.
 def write_combined_grid_plot(
     s_vec: np.ndarray,
     tau_vec: np.ndarray,
@@ -281,7 +287,6 @@ def write_combined_grid_plot(
     mc_summaries: list,
     z_display_max: float = None,
 ):
-    """Save all fixed-tau and fixed-relative-uncertainty panels on one page."""
     n_rows = len(s_vec)
     if n_rows == 0:
         raise ValueError("s_vec must contain at least one signal value")
@@ -323,6 +328,7 @@ def write_combined_grid_plot(
     print(f"Saved combined grid to: {out_pdf.resolve()}")
 
 
+# Write the individual panels and the combined grid.
 def write_median_significance_pdfs(
     s_vec: np.ndarray,
     tau_vec: np.ndarray,
@@ -337,7 +343,6 @@ def write_median_significance_pdfs(
     mc_summaries: list,
     z_display_max: float = None,
 ):
-    """Write the per-signal panels and the combined grid."""
     write_combined_tau_plots(
         s_vec=s_vec,
         tau_vec=tau_vec,
@@ -372,6 +377,7 @@ def write_median_significance_pdfs(
     )
 
 
+# Draw one fixed-tau median-significance panel.
 def _plot_combined_tau_panel(
     ax,
     s_idx: int,
@@ -438,6 +444,7 @@ def _plot_combined_tau_panel(
     )
 
 
+# Draw one fixed-relative-uncertainty median-significance panel.
 def _plot_combined_rel_sig_panel(
     ax,
     s_idx: int,
@@ -504,6 +511,7 @@ def _plot_combined_rel_sig_panel(
     )
 
 
+# Add the statistic and scan-configuration legends to a panel.
 def _add_combined_legends(
     ax,
     s_true: float,
@@ -602,6 +610,7 @@ def _add_combined_legends(
     )
 
 
+# Load the configuration, calculate the grids, and write the plots.
 def main(cfg_path: str):
     configure_plot_style()
 
@@ -659,7 +668,7 @@ def main(cfg_path: str):
         seed=seed,
     )
 
-    # The display limit does not alter the continuous statistical curves.
+    # The display cap masks only Monte Carlo markers; continuous curves are unchanged.
     results = mask_mc_for_display(results, z_display_max)
 
     write_median_significance_pdfs(

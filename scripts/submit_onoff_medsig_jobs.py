@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create and submit one Condor campaign for the on/off medsig scan."""
+"""Submit reproducible HTCondor jobs for the on/off median-significance scan."""
 
 import argparse
 import hashlib
@@ -24,6 +24,7 @@ RUN_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 SCHEMA_VERSION = 1
 
 
+# Read the campaign name and shared paper configuration from the command line.
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Submit the production on/off median-significance jobs."
@@ -37,6 +38,7 @@ def parse_args():
     return parser.parse_args()
 
 
+# Run a Git command in the repository and return its standard output.
 def run_git(*args):
     result = subprocess.run(
         ["git", *args],
@@ -49,6 +51,7 @@ def run_git(*args):
     return result.stdout.strip()
 
 
+# Require a clean repository and return the commit used for the campaign.
 def require_clean_repository():
     try:
         repository_root = Path(run_git("rev-parse", "--show-toplevel")).resolve()
@@ -66,6 +69,7 @@ def require_clean_repository():
     return commit
 
 
+# Check that the run name is safe to use as a directory name.
 def validate_run_name(run_name):
     if not RUN_NAME_PATTERN.fullmatch(run_name) or run_name in (".", ".."):
         raise ValueError(
@@ -74,6 +78,7 @@ def validate_run_name(run_name):
         )
 
 
+# Check the optional cluster environment setup script.
 def validate_setup_script():
     setup_script = os.environ.get("MEDSIG_SETUP_SCRIPT")
     if not setup_script:
@@ -86,12 +91,14 @@ def validate_setup_script():
         raise FileNotFoundError(f"Environment setup script not found: {setup_path}")
 
 
+# Convert a signal value into a stable directory tag.
 def signal_tag(s_true):
     text = f"{float(s_true):g}"
     text = text.replace("-", "m").replace(".", "p").replace("+", "")
     return f"s{text}"
 
 
+# Read the YAML configuration and hash its exact contents.
 def read_config(config_path):
     raw_config = config_path.read_bytes()
     config = yaml.safe_load(raw_config.decode("utf-8"))
@@ -102,6 +109,7 @@ def read_config(config_path):
     return config, raw_config, config_sha256
 
 
+# Parse and validate a positive integer setting.
 def positive_integer(value, name):
     if isinstance(value, bool):
         raise ValueError(f"{name} must be a positive integer")
@@ -116,6 +124,7 @@ def positive_integer(value, name):
     return number
 
 
+# Read a non-empty vector of finite configuration values.
 def finite_vector(config, name, positive=False):
     values = config.get(name)
     if not isinstance(values, list) or not values:
@@ -137,6 +146,7 @@ def finite_vector(config, name, positive=False):
     return numbers
 
 
+# Parse and validate one finite numeric setting.
 def finite_number(value, name):
     if isinstance(value, bool):
         raise ValueError(f"{name} must be a number")
@@ -149,6 +159,7 @@ def finite_number(value, name):
     return number
 
 
+# Require a safe PDF output path below plots/.
 def validate_output_path(value, name, signal_template=False):
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{name} must be a non-empty path")
@@ -167,6 +178,7 @@ def validate_output_path(value, name, signal_template=False):
         raise ValueError(f"{name} must name a PDF inside plots/")
 
 
+# Validate the plotting options shared with the collector.
 def validate_plot_settings(config):
     statistics = config.get("statistics", ["r", "rstar"])
     mc_summaries = config.get("mc_summaries", ["median"])
@@ -203,6 +215,7 @@ def validate_plot_settings(config):
     )
 
 
+# Validate the scan grid and one complete job partition per signal.
 def validate_signal_jobs(config):
     s_vec = finite_vector(config, "s_vec")
     finite_vector(config, "tau_vec", positive=True)
@@ -289,6 +302,7 @@ def validate_signal_jobs(config):
     return signals
 
 
+# Hash the frozen statistical source and worker copied into the campaign.
 def frozen_source_sha256(input_dir):
     source_files = [
         path
@@ -300,7 +314,7 @@ def frozen_source_sha256(input_dir):
     source_files.append(input_dir / "scripts" / WORKER.name)
     source_files.sort(key=lambda path: path.relative_to(input_dir).as_posix())
 
-    # Include both the relative filename and contents in the checksum.
+    # Include file names so that renaming a source file changes the checksum.
     digest = hashlib.sha256()
     for path in source_files:
         relative_path = path.relative_to(input_dir).as_posix()
@@ -311,6 +325,7 @@ def frozen_source_sha256(input_dir):
     return digest.hexdigest()
 
 
+# Create the run directory and freeze every input used by its workers.
 def write_campaign(run_name, commit, raw_config, config_sha256, signals):
     run_dir = ROOT / "runs" / run_name
     if run_dir.exists():
@@ -324,7 +339,7 @@ def write_campaign(run_name, commit, raw_config, config_sha256, signals):
     config_copy = run_dir / "config.yaml"
     config_copy.write_bytes(raw_config)
 
-    # Freeze every source file used by the worker before submitting the jobs.
+    # The frozen snapshot prevents later edits from mixing implementations.
     input_dir = run_dir / "input"
     shutil.copytree(
         ROOT / "src",
@@ -355,6 +370,7 @@ def write_campaign(run_name, commit, raw_config, config_sha256, signals):
     return run_dir, config_copy, input_dir
 
 
+# Build the variable assignments passed to the Condor submit description.
 def condor_arguments(run_name, commit, config_copy, input_dir, signal):
     relative_config = config_copy.relative_to(ROOT)
     relative_source = (input_dir / "src").relative_to(ROOT)
@@ -374,6 +390,7 @@ def condor_arguments(run_name, commit, config_copy, input_dir, signal):
     ]
 
 
+# Dry-run the Condor description for one signal cluster.
 def check_signal(run_name, commit, config_copy, input_dir, signal):
     submit_arguments = condor_arguments(
         run_name,
@@ -391,6 +408,7 @@ def check_signal(run_name, commit, config_copy, input_dir, signal):
     )
 
 
+# Submit all jobs for one signal value.
 def submit_signal(run_name, commit, config_copy, input_dir, signal):
     submit_arguments = condor_arguments(
         run_name,
@@ -406,6 +424,7 @@ def submit_signal(run_name, commit, config_copy, input_dir, signal):
     subprocess.run(["condor_submit", *submit_arguments], cwd=ROOT, check=True)
 
 
+# Validate, freeze and submit a complete production campaign.
 def main():
     args = parse_args()
 
@@ -440,7 +459,7 @@ def main():
             signals,
         )
 
-        # Validate every cluster before submitting the first one.
+        # Check every cluster before submitting the first one.
         for signal in signals:
             check_signal(args.run, commit, config_copy, input_dir, signal)
 

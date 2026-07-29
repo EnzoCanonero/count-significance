@@ -1,11 +1,4 @@
-"""Poisson on/off counting model with an uncertain background.
-
-The model is N ~ Pois(s + b), M ~ Pois(tau b), with ``b >= 0`` and
-``tau > 0``.  The likelihood uses the unconstrained signal estimate
-``s_hat = n - m/tau``.  Discovery results apply the directional convention
-``Z = max(0, r)`` after evaluating either ``r`` or its higher-order form
-``r*``.
-"""
+"""Discovery statistics for the Poisson on/off counting model."""
 
 import math
 
@@ -19,7 +12,7 @@ from .common import discovery_pvalue, discovery_z, norm_survival
 
 
 def _xlogy(count, argument):
-    """Evaluate ``count * log(argument)`` with the limit ``0 log(x)=0``."""
+    """Evaluate count log(argument) using the limit 0 log(x) = 0."""
     count, argument = np.broadcast_arrays(
         np.asarray(count, dtype=float),
         np.asarray(argument, dtype=float),
@@ -33,15 +26,12 @@ def _xlogy(count, argument):
 
 
 def b_profiled(s, n, m, tau):
-    """Profiled background estimate for a fixed tested signal ``s``.
+    """Return the profiled background for a fixed signal s.
 
-    The non-negative quadratic root is
+    For physical inputs s, n, m >= 0 and tau > 0, the non-negative root is
 
-        b_tilde = [A + sqrt(A^2 + 4 (1 + tau) m s)] / [2 (1 + tau)],
-        A = n + m - (1 + tau) s.
-
-    The physical on/off model assumes ``s >= 0``, ``n,m >= 0`` and ``tau > 0``.
-    Scalars and broadcastable arrays are accepted.
+    b_tilde = [A + sqrt(A^2 + 4(1 + tau) m s)] / [2(1 + tau)],
+    where A = n + m - (1 + tau) s.
     """
     s, n, m, tau = np.broadcast_arrays(
         np.asarray(s, dtype=float),
@@ -59,16 +49,15 @@ def b_profiled(s, n, m, tau):
 
 
 def loglik_diff(s, n, m, tau):
-    """Profile log-likelihood difference at a fixed signal value.
+    """Return the profile log-likelihood difference at fixed s.
 
-    This is ``Delta ell(s) = ell(s_hat, b_hat) - ell_p(s)``.  Products
-    ``0 log 0`` are evaluated by continuity.  With profiled means
-    ``mu_on=s+b_tilde`` and ``mu_off=tau*b_tilde``, it is
+    With mu_on = s + b_tilde and mu_off = tau b_tilde,
 
-        n log(n/mu_on) + m log(m/mu_off) - n - m + mu_on + mu_off.
+    Delta ell = n log(n / mu_on) + m log(m / mu_off)
+                - n - m + mu_on + mu_off.
 
-    A zero mean with a positive observed count gives ``+inf``; a negative
-    Poisson mean gives ``nan``.
+    Products involving zero counts are evaluated by continuity. A positive
+    count at zero mean gives inf, while a negative mean gives nan.
     """
     s = np.asarray(s, dtype=float)
     n_observed = np.asarray(n, dtype=float)
@@ -124,7 +113,10 @@ def loglik_diff(s, n, m, tau):
 
 
 def r_stat_onoff(s, n, m, tau):
-    """Signed likelihood root ``sign(s_hat-s) sqrt(2 Delta ell(s))``."""
+    """Return r(s) = sign(s_hat - s) sqrt(2 Delta ell(s)).
+
+    The unconstrained signal estimate is s_hat = n - m / tau.
+    """
     signal_hat = (
         np.asarray(n, dtype=float)
         - np.asarray(m, dtype=float) / np.asarray(tau, dtype=float)
@@ -134,23 +126,21 @@ def r_stat_onoff(s, n, m, tau):
 
 
 def u_stat_onoff(s, n, m, tau):
-    """Closed-form higher-order auxiliary statistic ``u(s)``.
+    """Return the higher-order auxiliary statistic u(s).
 
-    With ``b_tilde=b_profiled(s)`` and the two profiled means, the expression
-    implemented below is
+    For b_tilde = b_profiled(s), mu_on = s + b_tilde and mu_off = tau b_tilde,
 
-        sqrt(n m) / sqrt(n/mu_on^2 + m/b_tilde^2)
-        * [log(n/mu_on)/b_tilde - log(m/mu_off)/mu_on].
+    u = sqrt(n m) / sqrt(n / mu_on^2 + m / b_tilde^2)
+        * [log(n / mu_on) / b_tilde - log(m / mu_off) / mu_on].
 
-    At ``n=0`` or ``m=0``, its continuous endpoint value is zero because
-    ``sqrt(x) log(x) -> 0``.
+    At n = 0 or m = 0, the continuous limit is zero.
     """
     s = float(s)
     n = float(n)
     m = float(m)
     tau = float(tau)
 
-    # At the sample-space boundaries the continuous limit is u=0.
+    # At the sample-space boundaries the continuous limit is u = 0.
     if n <= 0.0 or m <= 0.0:
         return 0.0
 
@@ -172,12 +162,11 @@ def u_stat_onoff(s, n, m, tau):
 
 
 def r_star_onoff(s, n, m, tau):
-    """Higher-order root ``r*(s) = r + log|u/r| / r``.
+    """Return the higher-order root r*(s) = r + log|u / r| / r.
 
-    At ``n=0`` or ``m=0`` the logarithmic adjustment is undefined and the
-    boundary prescription is ``r*=r``.  At ``s=s_hat`` the analytic limit is
-
-        (n tau^3 - m) / [6 (m + n tau^2)^(3/2)].
+    At n = 0 or m = 0 the logarithmic adjustment is undefined, so r* = r.
+    At s = s_hat the analytic limit is
+    (n tau^3 - m) / [6 (m + n tau^2)^(3/2)].
     """
     s = float(s)
     n = float(n)
@@ -186,11 +175,11 @@ def r_star_onoff(s, n, m, tau):
 
     r = float(r_stat_onoff(s, n, m, tau))
 
-    # At n=0 or m=0 the logarithmic correction is not defined, so use r*=r.
+    # At n = 0 or m = 0 the logarithmic correction is undefined, so use r* = r.
     if n <= 0.0 or m <= 0.0:
         return r
 
-    # At s=s_hat both r and u vanish. Allow only for floating-point roundoff.
+    # At s = s_hat both r and u vanish. Allow only for floating-point roundoff.
     m_over_tau = m / tau
     mle_residual = n - s - m_over_tau
     mle_scale = abs(n) + abs(s) + abs(m_over_tau)
@@ -210,9 +199,8 @@ def r_star_onoff(s, n, m, tau):
 
 # Reference distributions and Monte Carlo
 
-
 def _sample_null_toys(s, b, tau, n_toys, seed=None):
-    """Generate toys under H0: N~Pois(s+b), M~Pois(tau*b)."""
+    """Draw N ~ Pois(s + b) and M ~ Pois(tau b) under the tested signal."""
     rng = np.random.default_rng(seed)
     n_toys_observed = rng.poisson(lam=s + b, size=n_toys)
     m_toys_observed = rng.poisson(lam=tau * b, size=n_toys)
@@ -225,16 +213,14 @@ def required_toys_for_Z_precision(
     min_toys: int = 10_000,
     max_toys: int = 2_000_000,
 ) -> tuple[int, bool]:
-    """
-    Estimate N so that the MC-based Z has relative uncertainty ≤ sigrel.
+    """Choose the toy count for a target relative precision on Z.
 
-    Take Z ≈ r_obs and p = Φ̄(Z). With p̂ binomial, Var(p̂) = p(1−p)/N and
-    |dZ/dp| = 1/φ(Z). Propagating the uncertainty from p to Z gives
+    Taking Z = max(0, r_obs) and p = 1 - Phi(Z), binomial error propagation gives
 
-        N = p(1−p) / [sigrel² Z² φ(Z)²].
+    N = p(1 - p) / [sigrel^2 Z^2 phi(Z)^2].
 
-    Return the number of toys after applying the requested limits and a flag
-    which is true when max_toys prevents reaching the target precision.
+    Here phi is the standard-normal density. The flag is true when max_toys
+    prevents reaching this precision.
     """
     min_toys = int(min_toys)
     max_toys = int(max_toys)
@@ -249,7 +235,7 @@ def required_toys_for_Z_precision(
         raise ValueError("min_toys must not exceed max_toys")
 
     z_value = float(discovery_z(r_obs))
-    # Relative precision is not defined at Z=0, where there is no discovery.
+    # Relative precision is undefined at Z = 0, where there is no discovery.
     if z_value <= 0.0:
         return min_toys, False
     if not np.isfinite(z_value):
@@ -280,8 +266,8 @@ def required_toys_for_Z_precision(
     return n_toys, precision_limited
 
 
+# Choose a finite Poisson support for the deterministic tail sum.
 def _poisson_grid_max(mu: float, observed: int = 0, tail_mass: float = 1e-12) -> int:
-    """Return a finite Poisson support for a deterministic tail sum."""
     mu = float(mu)
     if mu <= 0.0:
         return max(0, int(observed))
@@ -300,12 +286,11 @@ def pvals_onoff_profile_sum(
     tau,
     tail_mass: float = 1e-12,
 ) -> dict:
-    """Return the profiled-reference and asymptotic discovery p-values.
+    """Return profiled-reference and asymptotic discovery p-values.
 
-    The deterministic reference plugs the fitted background into the null
-    model and sums the inclusive tail ``r_toy >= r_obs``.  Each Poisson grid
-    omits at most ``tail_mass`` probability; ``p_ref_se`` is zero because no
-    Monte Carlo sampling is involved.
+    The deterministic reference plugs the profiled background into the null
+    model and sums the inclusive tail r_toy >= r_obs. Each Poisson grid omits
+    at most tail_mass probability.
     """
     if not 0.0 < tail_mass < 1.0:
         raise ValueError("tail_mass must lie between zero and one")
@@ -360,23 +345,20 @@ def pvals_onoff(
     max_toys: int = 2_000_000,
     seed: int = 12345,
 ) -> dict:
-    """
-    Compute Monte Carlo and asymptotic p-values for observed ``(n, m)``.
+    """Return Monte Carlo and asymptotic p-values for observed (n, m).
 
-    ``p_mc=(K+1)/(N+1)`` is the corrected MC estimate, capped at 0.5 for the
-    discovery test; ``p_mc_raw=K/N`` is retained for diagnostics.  The result
-    also contains ``n_toys`` (N), ``n_exceedances`` (K), the profiled
-    background, p-value resolution, MC standard error and precision-limit flag.
+    The corrected tail estimate is (K + 1) / (N + 1). The returned p_mc applies
+    the discovery cap p <= 0.5, while p_mc_raw = K / N is kept for diagnostics.
     """
 
-    # Compute the observed test statistics and their Gaussian p-values.
+    # Compute the observed roots and their Gaussian p-values.
     r_observed = float(r_stat_onoff(s, n, m, tau))
     rstar_observed = float(r_star_onoff(s, n, m, tau))
 
     p_r = float(discovery_pvalue(r_observed))
     p_rstar = float(discovery_pvalue(rstar_observed))
 
-    # Profile the background under the signal hypothesis being tested.
+    # Profile the background under the tested signal hypothesis.
     background_profile = float(b_profiled(s, n, m, tau))
 
     # Choose enough toys to reach the target relative precision on Z.
@@ -429,16 +411,14 @@ def asimov_Zs_onoff(
     b,
     tau,
 ):
-    """
-    Asimov discovery Z-values for testing s = 0 in the on/off problem.
+    """Return Asimov discovery significances for testing s = 0.
 
-    The Asimov counts are ``n_A=s_true+b`` and ``m_A=tau*b``.  The returned
-    dictionary contains ``Z_A_r`` and ``Z_A_rstar`` for a test of ``s=0``.
+    The representative counts are n_A = s_true + b and m_A = tau b.
     """
     n_asimov = float(s_true + b)
     m_asimov = float(tau * b)
 
-    # First compute the signed roots, then apply the discovery definition.
+    # Compute the signed roots before applying the discovery convention.
     r_asimov = r_stat_onoff(
         0.0,
         n_asimov,
@@ -462,7 +442,6 @@ def asimov_Zs_onoff(
 
 # Expected significance
 
-
 def _mc_significance_summary_onoff(
     s_true,
     b,
@@ -473,7 +452,11 @@ def _mc_significance_summary_onoff(
     max_toys: int = 2_000_000,
     seed: int = 12345,
 ):
-    """Return median and mean Z from outer data toys and inner null toys."""
+    """Return the median and mean significance from nested on/off toys.
+
+    Outer toys follow N ~ Pois(s_true + b) and M ~ Pois(tau b). Each inner
+    null sample estimates the corresponding discovery-tail probability.
+    """
     if n_outer <= 0:
         raise ValueError("n_outer must be positive")
 
@@ -515,12 +498,10 @@ def expected_significance_onoff(
     max_toys: int = 2_000_000,
     seed: int = 12345,
 ):
-    """
-    Compute Asimov and MC expected significances for H0:s=0.
+    """Return Asimov and Monte Carlo expected discovery significances.
 
-    ``s_true``, ``b`` and ``tau`` may be scalars or broadcastable arrays.  The
-    keys ``Z_A_r``, ``Z_A_rstar``, ``Z_mc_median`` and ``Z_mc_mean`` all have
-    their broadcast shape.
+    The Asimov values use n_A = s_true + b and m_A = tau b. The Monte Carlo
+    values are the median and mean of Z over on/off data toys.
     """
     s_arr, b_arr, tau_arr = np.broadcast_arrays(
         np.asarray(s_true, dtype=float),

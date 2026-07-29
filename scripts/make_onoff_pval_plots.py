@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the on/off observed-significance paper plots."""
+"""Create the on/off observed-significance plots used in the paper."""
 
 import argparse
 import sys
@@ -23,6 +23,7 @@ from src.on_off import pvals_onoff, pvals_onoff_profile_sum
 PLOT_FIGSIZE = (6.5, 6.5)
 
 
+# Apply the common style used by the observed-significance plots.
 def _configure_plot_style():
     plt.rcParams.update(
         {
@@ -36,6 +37,7 @@ def _configure_plot_style():
     )
 
 
+# Apply the final tick and spine styling to an axis.
 def _finish_axes(ax):
     ax.tick_params(axis="both", which="major", labelsize=16, width=1.3, length=6)
     ax.tick_params(axis="both", which="minor", width=1.0, length=3)
@@ -43,6 +45,7 @@ def _finish_axes(ax):
         spine.set_linewidth(1.2)
 
 
+# Return the shared legend styling.
 def _legend_kwargs():
     return {
         "frameon": False,
@@ -54,6 +57,7 @@ def _legend_kwargs():
     }
 
 
+# Add separate legends for statistics and observed OFF counts.
 def _add_stat_and_m_legends(
     ax,
     m_values: list,
@@ -115,6 +119,7 @@ def _add_stat_and_m_legends(
     )
 
 
+# Set readable limits for an observed-count significance panel.
 def _set_count_significance_limits(ax, n_lo: float, n_hi: float, *z_arrays: np.ndarray):
     x_span = max(float(n_hi - n_lo), 1.0)
     x_pad = max(0.5, 0.06 * x_span)
@@ -131,7 +136,7 @@ def _set_count_significance_limits(ax, n_lo: float, n_hi: float, *z_arrays: np.n
 
 
 def _candidate_off_counts(mu_b: float, sigma_offsets=(-1.0, 0.0, 1.0)) -> np.ndarray:
-    """Representative control counts at E[M] + k sqrt(E[M])."""
+    """Choose representative OFF counts at E[M] + k sqrt(E[M])."""
     sigma_m = np.sqrt(max(float(mu_b), 0.0))
     m0_raw = np.array(
         [
@@ -144,8 +149,8 @@ def _candidate_off_counts(mu_b: float, sigma_offsets=(-1.0, 0.0, 1.0)) -> np.nda
     return np.unique(np.sort(m0_raw))
 
 
+# Add consecutive OFF counts when too few distinct slices were selected.
 def _ensure_min_off_counts(m0_list: np.ndarray, min_count: int = 3) -> np.ndarray:
-    """Pad the control-count slices with consecutive larger integers for plotting stability."""
     m0_list = np.unique(np.sort(np.asarray(m0_list, dtype=int)))
     min_count = max(int(min_count), 0)
     if m0_list.size >= min_count:
@@ -161,11 +166,12 @@ def _ensure_min_off_counts(m0_list: np.ndarray, min_count: int = 3) -> np.ndarra
 
 
 def _z_from_p(p):
+    """Convert an upper-tail p-value to Z = Phi^(-1)(1 - p)."""
     return norm.isf(np.clip(np.asarray(p, dtype=float), 1e-300, 1.0 - 1e-16))
 
 
+# Validate and normalise the configured reference method.
 def _normalise_reference_method(reference_method: str) -> str:
-    """Return the canonical reference-method name."""
     method = str(reference_method).lower()
     if method in ("profile_sum", "mc"):
         return method
@@ -181,6 +187,11 @@ def _pvals_onoff_reference(
     reference_method: str,
     reference_tail_mass: float,
 ):
+    """Return asymptotic p-values and the selected on/off reference.
+
+    profile_sum sums the inclusive joint-Poisson tail at the null-profiled
+    background, while mc estimates the reference with simulated counts.
+    """
     reference_method = _normalise_reference_method(reference_method)
 
     if reference_method == "profile_sum":
@@ -222,8 +233,12 @@ def compute_pvalue_scans(
     max_n: int = 10_000,
     min_m0_values: int = 3,
 ):
-    """Compute the p-value scan for each selected control count."""
-    # Poisson means for the signal (ON) and control (OFF) regions under s0, b, τ
+    """Scan ON counts for representative fixed OFF counts.
+
+    The discovery tail begins above n = s0 + m/tau. Each point compares the
+    q0 and q0* approximations with the selected inclusive reference tail.
+    """
+    # Set the ON and OFF Poisson means under s0, b, and tau.
     mu_s = float(s0 + b)
     mu_b = float(tau * b)
 
@@ -234,14 +249,12 @@ def compute_pvalue_scans(
         m0_list = nonzero_m0 if nonzero_m0.size > 0 else np.array([1], dtype=int)
     m0_list = _ensure_min_off_counts(m0_list, min_m0_values)
 
-    # Define the scan range for primary counts n0:
-    # from n = 0 up to μ_s + 5√μ_s (rounded up), ensuring at least one bin.
+    # Check the stopping criterion only beyond mu_s + 5 sqrt(mu_s).
     n_min = 0
     n_max_start = max(n_min, int(np.ceil(mu_s + 5.0 * np.sqrt(mu_s))))
 
     results = []
 
-    # Loop over the chosen control-count configurations
     for m0 in m0_list:
         threshold = float(s0) + int(m0) / float(tau)
         first_tail_n = int(np.floor(threshold)) + 1
@@ -306,13 +319,13 @@ def compute_pvalue_scans(
     return results
 
 
+# Write p-value panels using colour for m and markers for the statistic.
 def write_pvalue_pdf(
     results: list,
     out_pdf: Path,
     reference_label: str,
     statistics: list,
 ):
-    """Write p-value panels with colour encoding m and marker encoding the statistic."""
     grouped = defaultdict(list)
     for result in results:
         grouped[(result["s0"], result["b"], result["tau"])].append(result)
@@ -383,13 +396,13 @@ def write_pvalue_pdf(
             plt.close(fig)
 
 
+# Convert p-values to significance and write the scan panels.
 def write_significance_pdf(
     results: list,
     out_pdf: Path,
     reference_label: str,
     statistics: list,
 ):
-    """Write significance panels with colour encoding m and marker encoding the statistic."""
     grouped = defaultdict(list)
     for result in results:
         grouped[(result["s0"], result["b"], result["tau"])].append(result)
@@ -445,6 +458,7 @@ def write_significance_pdf(
             plt.close(fig)
 
 
+# Load the configuration, calculate the scans, and write both plot sets.
 def main(cfg_path: str):
     _configure_plot_style()
 

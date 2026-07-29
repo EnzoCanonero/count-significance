@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run one batch job for the on/off median-significance calculation."""
+"""Run one HTCondor worker for the on/off median-significance scan."""
 
 import argparse
 import hashlib
@@ -33,6 +33,7 @@ RESULT_FIELDS = (
 SCHEMA_VERSION = 1
 
 
+# Read the frozen campaign inputs and this worker's job identifiers.
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Run one batch job for the on/off median-significance scan."
@@ -46,6 +47,7 @@ def parse_args():
     return parser.parse_args()
 
 
+# Read the frozen YAML configuration and hash its exact contents.
 def load_config(config_path):
     raw_config = config_path.read_bytes()
     config = yaml.safe_load(raw_config.decode("utf-8"))
@@ -56,6 +58,7 @@ def load_config(config_path):
     return config, config_hash
 
 
+# Parse and validate a positive integer setting.
 def positive_integer(value, name):
     if isinstance(value, bool):
         raise ValueError(f"{name} must be a positive integer")
@@ -69,6 +72,7 @@ def positive_integer(value, name):
     return number
 
 
+# Read a non-empty vector of finite configuration values.
 def finite_vector(config, name, positive=False):
     values = config.get(name)
     if not isinstance(values, list) or not values:
@@ -87,6 +91,7 @@ def finite_vector(config, name, positive=False):
     return array
 
 
+# Parse and validate one finite numeric setting.
 def finite_number(value, name):
     if isinstance(value, bool):
         raise ValueError(f"{name} must be a number")
@@ -99,6 +104,7 @@ def finite_number(value, name):
     return number
 
 
+# Hash the frozen statistical source and this worker.
 def frozen_source_sha256():
     source_files = [
         path
@@ -110,7 +116,7 @@ def frozen_source_sha256():
     source_files.append(Path(__file__).resolve())
     source_files.sort(key=lambda path: path.relative_to(ROOT).as_posix())
 
-    # Include both the relative filename and contents in the checksum.
+    # Include file names so that renaming a source file changes the checksum.
     digest = hashlib.sha256()
     for path in source_files:
         relative_path = path.relative_to(ROOT).as_posix()
@@ -121,6 +127,7 @@ def frozen_source_sha256():
     return digest.hexdigest()
 
 
+# Validate the selected signal partition and return its worker settings.
 def read_job_settings(config, signal_index, job_id):
     if "batch_mc" not in config or not isinstance(config["batch_mc"], dict):
         raise ValueError("The config must contain a batch_mc mapping")
@@ -189,6 +196,12 @@ def read_job_settings(config, signal_index, job_id):
 
 
 def compute_points(config, settings, job_id):
+    """Generate this job's pseudo-experiments on the two scan grids.
+
+    Counts follow n ~ Pois(s + b) and m ~ Pois(tau b). For fixed relative
+    uncertainty delta, tau = 1/(delta^2 b). Separate random streams generate
+    the observed counts and the seeds used by the inner Monte Carlo.
+    """
     tau_vec = finite_vector(config, "tau_vec", positive=True)
     rel_sig_vec = finite_vector(config, "rel_sig_vec", positive=True)
     b_min = finite_number(config.get("b_min"), "b_min")
@@ -282,6 +295,7 @@ def compute_points(config, settings, job_id):
     return points
 
 
+# Write the result as JSON, replacing the target only after a complete write.
 def write_output(output_path, data):
     output_path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = output_path.with_name(f".{output_path.name}.{os.getpid()}.tmp")
@@ -296,6 +310,7 @@ def write_output(output_path, data):
             temp_path.unlink()
 
 
+# Run one worker and save its provenance together with all scan points.
 def main():
     args = parse_args()
     config_path = Path(args.config)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the known-background median-significance paper plot."""
+"""Create the known-background median-significance plot used in the paper."""
 
 import argparse
 import sys
@@ -20,6 +20,7 @@ from src.on import expected_significance_on
 PLOT_FIGSIZE = (6.5, 6.5)
 
 
+# Apply the common style used by the median-significance plots.
 def _configure_plot_style():
     plt.rcParams.update(
         {
@@ -34,6 +35,7 @@ def _configure_plot_style():
     )
 
 
+# Apply the final tick and spine styling to an axis.
 def _finish_axes(ax):
     ax.tick_params(axis="both", which="major", labelsize=16, width=1.3, length=6)
     ax.tick_params(axis="both", which="minor", width=1.0, length=3)
@@ -41,6 +43,7 @@ def _finish_axes(ax):
         spine.set_linewidth(1.2)
 
 
+# Choose a y-axis maximum with a small margin above finite values.
 def _medsig_ymax(*arrays) -> float:
     values = np.concatenate([np.ravel(np.asarray(array, dtype=float)) for array in arrays])
     values = values[np.isfinite(values)]
@@ -49,6 +52,7 @@ def _medsig_ymax(*arrays) -> float:
     return max(float(np.max(values)) * 1.04, 1.0)
 
 
+# Apply the common axes layout for median-significance plots.
 def _style_medsig_axes(ax, b_values: np.ndarray, y_max: float, y_label: str):
     ax.set_box_aspect(1)
     ax.set_xscale("log")
@@ -60,10 +64,12 @@ def _style_medsig_axes(ax, b_values: np.ndarray, y_max: float, y_label: str):
     _finish_axes(ax)
 
 
+# Mark a legend entry when the continuity correction is applied.
 def _correction_suffix(continuity_corrected: bool) -> str:
     return " (cc)" if continuity_corrected else ""
 
 
+# Select the y-axis label that matches the requested Monte Carlo summaries.
 def _medsig_y_label(mc_summaries: list) -> str:
     if "median" in mc_summaries and "mean" not in mc_summaries:
         return r"$\operatorname{med}[Z\mid s]$"
@@ -78,11 +84,16 @@ def compute_median_significance(
     continuity_correction_r: bool = False,
     continuity_correction_rstar: bool = True,
 ):
-    """Compute the Asimov and Monte Carlo significance grids."""
+    """Compute Asimov and Monte Carlo significance grids for known background.
+
+    The Asimov count is n_A = s + b, while the Monte Carlo summaries use
+    Poisson data toys. The calculation is broadcast over signal strengths s
+    and means b.
+    """
     seed = int(seed)
     n_outer = int(n_outer)
 
-    # Vectorised grids for expected_significance_on: shape (S, B)
+    # Build the grid with shape (signal, background).
     s_grid = s_vec[:, None]
     b_grid = b_values[None, :]
 
@@ -96,6 +107,7 @@ def compute_median_significance(
     )
 
 
+# Write the known-background median-significance figure.
 def write_median_significance_pdf(
     s_vec: np.ndarray,
     b_values: np.ndarray,
@@ -105,7 +117,6 @@ def write_median_significance_pdf(
     mc_summaries: list,
     continuity_correction_rstar: bool,
 ):
-    """Write the known-background median-significance plot to a PDF."""
     Z_A_r = results["Z_A_r"]
     Z_A_rstar = results["Z_A_rstar"]
     Z_mc_median = results["Z_mc_median"]
@@ -126,8 +137,7 @@ def write_median_significance_pdf(
         if "mean" in mc_summaries:
             ax.plot(b_values, Z_mc_mean[idx], color=color, linestyle="None", marker="+")
 
-    # Let the naive comparison run above the frame rather than compressing the
-    # statistical curves that set the useful plotting range.
+    # Exclude the naive comparison so it can run above the frame.
     values_for_limits = []
     if "r" in statistics:
         values_for_limits.append(Z_A_r)
@@ -213,6 +223,7 @@ def write_median_significance_pdf(
     plt.close(fig)
 
 
+# Load the configuration, calculate the grid, and write the plot.
 def main(cfg_path: str):
     _configure_plot_style()
 
