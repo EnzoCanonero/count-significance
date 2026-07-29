@@ -5,6 +5,7 @@ import argparse
 import sys
 from collections import defaultdict
 from pathlib import Path
+from typing import Any, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -16,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.common import load_yaml
+from src.common import ScalarOrArray, load_yaml
 from src.on_off import pvals_onoff, pvals_onoff_profile_sum
 
 
@@ -24,7 +25,7 @@ PLOT_FIGSIZE = (6.5, 6.5)
 
 
 # Apply the common style used by the observed-significance plots.
-def _configure_plot_style():
+def _configure_plot_style() -> None:
     plt.rcParams.update(
         {
             "font.size": 16,
@@ -38,7 +39,7 @@ def _configure_plot_style():
 
 
 # Apply the final tick and spine styling to an axis.
-def _finish_axes(ax):
+def _finish_axes(ax) -> None:
     ax.tick_params(axis="both", which="major", labelsize=16, width=1.3, length=6)
     ax.tick_params(axis="both", which="minor", width=1.0, length=3)
     for spine in ax.spines.values():
@@ -46,7 +47,7 @@ def _finish_axes(ax):
 
 
 # Return the shared legend styling.
-def _legend_kwargs():
+def _legend_kwargs() -> dict[str, Any]:
     return {
         "frameon": False,
         "fontsize": 13,
@@ -60,16 +61,16 @@ def _legend_kwargs():
 # Add separate legends for statistics and observed OFF counts.
 def _add_stat_and_m_legends(
     ax,
-    m_values: list,
-    colors: list,
+    m_values: list[int],
+    colors: list[str],
     reference_label: str,
-    statistics: list,
+    statistics: list[str],
     r_label: str,
     rstar_label: str,
     loc: str = "upper right",
-    stat_anchor: tuple = (0.98, 0.98),
-    m_anchor: tuple = (0.98, 0.74),
-):
+    stat_anchor: tuple[float, float] = (0.98, 0.98),
+    m_anchor: tuple[float, float] = (0.98, 0.74),
+) -> None:
     stat_handles = []
     if "r" in statistics:
         stat_handles.append(
@@ -120,7 +121,12 @@ def _add_stat_and_m_legends(
 
 
 # Set readable limits for an observed-count significance panel.
-def _set_count_significance_limits(ax, n_lo: float, n_hi: float, *z_arrays: np.ndarray):
+def _set_count_significance_limits(
+    ax,
+    n_lo: float,
+    n_hi: float,
+    *z_arrays: np.ndarray,
+) -> None:
     x_span = max(float(n_hi - n_lo), 1.0)
     x_pad = max(0.5, 0.06 * x_span)
     ax.set_xlim(float(n_lo) - x_pad, float(n_hi) + x_pad)
@@ -135,7 +141,10 @@ def _set_count_significance_limits(ax, n_lo: float, n_hi: float, *z_arrays: np.n
     ax.set_ylim(min(0.0, z_min - 0.04 * z_span), z_max + 0.10 * z_span)
 
 
-def _candidate_off_counts(mu_b: float, sigma_offsets=(-1.0, 0.0, 1.0)) -> np.ndarray:
+def _candidate_off_counts(
+    mu_b: float,
+    sigma_offsets: tuple[float, ...] = (-1.0, 0.0, 1.0),
+) -> np.ndarray:
     """Choose representative OFF counts at E[M] + k sqrt(E[M])."""
     sigma_m = np.sqrt(max(float(mu_b), 0.0))
     m0_raw = np.array(
@@ -165,7 +174,7 @@ def _ensure_min_off_counts(m0_list: np.ndarray, min_count: int = 3) -> np.ndarra
     return np.unique(np.sort(np.concatenate([m0_list, np.asarray(extra, dtype=int)])))
 
 
-def _z_from_p(p):
+def _z_from_p(p: ScalarOrArray) -> ScalarOrArray:
     """Convert an upper-tail p-value to Z = Phi^(-1)(1 - p)."""
     return norm.isf(np.clip(np.asarray(p, dtype=float), 1e-300, 1.0 - 1e-16))
 
@@ -179,14 +188,14 @@ def _normalise_reference_method(reference_method: str) -> str:
 
 
 def _pvals_onoff_reference(
-    s,
-    n,
-    m,
-    tau,
+    s: float,
+    n: int,
+    m: int,
+    tau: float,
     sigrel: float,
     reference_method: str,
     reference_tail_mass: float,
-):
+) -> dict[str, float]:
     """Return asymptotic p-values and the selected on/off reference.
 
     profile_sum sums the inclusive joint-Poisson tail at the null-profiled
@@ -224,15 +233,15 @@ def compute_pvalue_scans(
     tau: float,
     sigrel: float,
     target_z: float = 5.0,
-    max_observed_count: int = None,
-    m_sigma_offsets=(-1.0, 0.0, 1.0),
+    max_observed_count: Optional[int] = None,
+    m_sigma_offsets: tuple[float, ...] = (-1.0, 0.0, 1.0),
     drop_zero_m0: bool = True,
     trim_to_discovery_tail: bool = True,
     reference_method: str = "profile_sum",
     reference_tail_mass: float = 1e-12,
     max_n: int = 10_000,
     min_m0_values: int = 3,
-):
+) -> list[dict[str, Any]]:
     """Scan ON counts for representative fixed OFF counts.
 
     The discovery tail begins above n = s0 + m/tau. Each point compares the
@@ -321,11 +330,11 @@ def compute_pvalue_scans(
 
 # Write p-value panels using colour for m and markers for the statistic.
 def write_pvalue_pdf(
-    results: list,
+    results: list[dict[str, Any]],
     out_pdf: Path,
     reference_label: str,
-    statistics: list,
-):
+    statistics: list[str],
+) -> None:
     grouped = defaultdict(list)
     for result in results:
         grouped[(result["s0"], result["b"], result["tau"])].append(result)
@@ -398,11 +407,11 @@ def write_pvalue_pdf(
 
 # Convert p-values to significance and write the scan panels.
 def write_significance_pdf(
-    results: list,
+    results: list[dict[str, Any]],
     out_pdf: Path,
     reference_label: str,
-    statistics: list,
-):
+    statistics: list[str],
+) -> None:
     grouped = defaultdict(list)
     for result in results:
         grouped[(result["s0"], result["b"], result["tau"])].append(result)
@@ -459,7 +468,7 @@ def write_significance_pdf(
 
 
 # Load the configuration, calculate the scans, and write both plot sets.
-def main(cfg_path: str):
+def main(cfg_path: str) -> None:
     _configure_plot_style()
 
     cfg = load_yaml(cfg_path)

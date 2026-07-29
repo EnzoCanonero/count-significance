@@ -5,7 +5,7 @@ import math
 import numpy as np
 from scipy.stats import norm, poisson
 
-from .common import discovery_pvalue, discovery_z
+from .common import ScalarOrArray, discovery_pvalue, discovery_z
 
 
 # Likelihood and signed roots
@@ -18,7 +18,7 @@ def _correct_count(n: float, continuity_correction: bool) -> float:
     return n_effective
 
 
-def poisson_tail_on(s0: float, b: float, n):
+def poisson_tail_on(s0: float, b: float, n: ScalarOrArray) -> ScalarOrArray:
     """Return the inclusive tail P(N >= n | mu0), where mu0 = s0 + b."""
     mu0 = s0 + b
     # SciPy defines sf(x) as P(N > x), so sf(n - 1) includes the observed count.
@@ -113,10 +113,10 @@ def r_star_on(
 def pvals_on(
     s0: float,
     b: float,
-    n,
+    n: ScalarOrArray,
     continuity_correction_r: bool = False,
     continuity_correction_rstar: bool = True,
-):
+) -> dict[str, np.ndarray]:
     """Return exact and asymptotic discovery p-values for observed counts.
 
     p_exact is the inclusive Poisson tail, while p_r and p_rstar are the
@@ -174,13 +174,13 @@ def _mc_significance_summary_on(
 
 
 def expected_significance_on(
-    s_true,
-    b,
+    s_true: ScalarOrArray,
+    b: ScalarOrArray,
     n_outer: int = 200,
     seed: int = 12345,
     continuity_correction_r: bool = False,
     continuity_correction_rstar: bool = True,
-) -> dict:
+) -> dict[str, np.ndarray]:
     """Return Asimov and Monte Carlo expected discovery significances.
 
     The Asimov values use n_A = s_true + b. The Monte Carlo values are the

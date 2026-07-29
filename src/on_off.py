@@ -1,17 +1,18 @@
 """Discovery statistics for the Poisson on/off counting model."""
 
 import math
+from typing import Optional, Union
 
 import numpy as np
 from scipy.stats import norm, poisson
 
-from .common import discovery_pvalue, discovery_z, norm_survival
+from .common import ScalarOrArray, discovery_pvalue, discovery_z, norm_survival
 
 
 # Profile likelihood and signed roots
 
 
-def _xlogy(count, argument):
+def _xlogy(count: ScalarOrArray, argument: ScalarOrArray) -> np.ndarray:
     """Evaluate count log(argument) using the limit 0 log(x) = 0."""
     count, argument = np.broadcast_arrays(
         np.asarray(count, dtype=float),
@@ -25,7 +26,12 @@ def _xlogy(count, argument):
     return result
 
 
-def b_profiled(s, n, m, tau):
+def b_profiled(
+    s: ScalarOrArray,
+    n: ScalarOrArray,
+    m: ScalarOrArray,
+    tau: ScalarOrArray,
+) -> ScalarOrArray:
     """Return the profiled background for a fixed signal s.
 
     For physical inputs s, n, m >= 0 and tau > 0, the non-negative root is
@@ -48,7 +54,12 @@ def b_profiled(s, n, m, tau):
     return (linear_term + np.sqrt(discriminant)) / (2.0 * (1.0 + tau))
 
 
-def loglik_diff(s, n, m, tau):
+def loglik_diff(
+    s: ScalarOrArray,
+    n: ScalarOrArray,
+    m: ScalarOrArray,
+    tau: ScalarOrArray,
+) -> ScalarOrArray:
     """Return the profile log-likelihood difference at fixed s.
 
     With mu_on = s + b_tilde and mu_off = tau b_tilde,
@@ -112,7 +123,12 @@ def loglik_diff(s, n, m, tau):
     return delta_log_likelihood
 
 
-def r_stat_onoff(s, n, m, tau):
+def r_stat_onoff(
+    s: ScalarOrArray,
+    n: ScalarOrArray,
+    m: ScalarOrArray,
+    tau: ScalarOrArray,
+) -> ScalarOrArray:
     """Return r(s) = sign(s_hat - s) sqrt(2 Delta ell(s)).
 
     The unconstrained signal estimate is s_hat = n - m / tau.
@@ -125,7 +141,7 @@ def r_stat_onoff(s, n, m, tau):
     return np.sign(signal_hat - s) * np.sqrt(2.0 * delta_log_likelihood)
 
 
-def u_stat_onoff(s, n, m, tau):
+def u_stat_onoff(s: float, n: float, m: float, tau: float) -> float:
     """Return the higher-order auxiliary statistic u(s).
 
     For b_tilde = b_profiled(s), mu_on = s + b_tilde and mu_off = tau b_tilde,
@@ -161,7 +177,7 @@ def u_stat_onoff(s, n, m, tau):
     return numerator * log_terms / denominator
 
 
-def r_star_onoff(s, n, m, tau):
+def r_star_onoff(s: float, n: float, m: float, tau: float) -> float:
     """Return the higher-order root r*(s) = r + log|u / r| / r.
 
     At n = 0 or m = 0 the logarithmic adjustment is undefined, so r* = r.
@@ -199,7 +215,13 @@ def r_star_onoff(s, n, m, tau):
 
 # Reference distributions and Monte Carlo
 
-def _sample_null_toys(s, b, tau, n_toys, seed=None):
+def _sample_null_toys(
+    s: float,
+    b: float,
+    tau: float,
+    n_toys: int,
+    seed: Optional[int] = None,
+) -> tuple[np.ndarray, np.ndarray]:
     """Draw N ~ Pois(s + b) and M ~ Pois(tau b) under the tested signal."""
     rng = np.random.default_rng(seed)
     n_toys_observed = rng.poisson(lam=s + b, size=n_toys)
@@ -208,7 +230,7 @@ def _sample_null_toys(s, b, tau, n_toys, seed=None):
 
 
 def required_toys_for_Z_precision(
-    r_obs,
+    r_obs: float,
     sigrel: float = 0.05,
     min_toys: int = 10_000,
     max_toys: int = 2_000_000,
@@ -280,12 +302,12 @@ def _poisson_grid_max(mu: float, observed: int = 0, tail_mass: float = 1e-12) ->
 
 
 def pvals_onoff_profile_sum(
-    s,
-    n,
-    m,
-    tau,
+    s: float,
+    n: int,
+    m: int,
+    tau: float,
     tail_mass: float = 1e-12,
-) -> dict:
+) -> dict[str, float]:
     """Return profiled-reference and asymptotic discovery p-values.
 
     The deterministic reference plugs the profiled background into the null
@@ -336,15 +358,15 @@ def pvals_onoff_profile_sum(
 
 
 def pvals_onoff(
-    s,
-    n,
-    m,
-    tau,
+    s: float,
+    n: int,
+    m: int,
+    tau: float,
     sigrel: float = 0.05,
     min_toys: int = 10_000,
     max_toys: int = 2_000_000,
     seed: int = 12345,
-) -> dict:
+) -> dict[str, Union[float, int, bool]]:
     """Return Monte Carlo and asymptotic p-values for observed (n, m).
 
     The corrected tail estimate is (K + 1) / (N + 1). The returned p_mc applies
@@ -407,10 +429,10 @@ def pvals_onoff(
 
 
 def asimov_Zs_onoff(
-    s_true,
-    b,
-    tau,
-):
+    s_true: float,
+    b: float,
+    tau: float,
+) -> dict[str, float]:
     """Return Asimov discovery significances for testing s = 0.
 
     The representative counts are n_A = s_true + b and m_A = tau b.
@@ -443,15 +465,15 @@ def asimov_Zs_onoff(
 # Expected significance
 
 def _mc_significance_summary_onoff(
-    s_true,
-    b,
-    tau,
+    s_true: float,
+    b: float,
+    tau: float,
     n_outer: int = 2000,
     sigrel: float = 0.05,
     min_toys: int = 10_000,
     max_toys: int = 2_000_000,
     seed: int = 12345,
-):
+) -> tuple[float, float]:
     """Return the median and mean significance from nested on/off toys.
 
     Outer toys follow N ~ Pois(s_true + b) and M ~ Pois(tau b). Each inner
@@ -489,15 +511,15 @@ def _mc_significance_summary_onoff(
 
 
 def expected_significance_onoff(
-    s_true,
-    b,
-    tau,
+    s_true: ScalarOrArray,
+    b: ScalarOrArray,
+    tau: ScalarOrArray,
     n_outer: int = 2000,
     sigrel: float = 0.05,
     min_toys: int = 10_000,
     max_toys: int = 2_000_000,
     seed: int = 12345,
-):
+) -> dict[str, np.ndarray]:
     """Return Asimov and Monte Carlo expected discovery significances.
 
     The Asimov values use n_A = s_true + b and m_A = tau b. The Monte Carlo
