@@ -1,21 +1,20 @@
-# Byte-compiled / cache files
+# Python cache files
 __pycache__/
 *.py[cod]
-*.pyd
-*.pyo
 
-# Notebook checkpoints and autosave files
+# Notebook checkpoints
 .ipynb_checkpoints/
 *.nbconvert.ipynb
 
 # Virtual environments
 .env
-.venv
+.venv*/
 env/
 venv/
 
-# System files
+# macOS files
 .DS_Store
+._*
 
 # Editor settings
 .vscode/
@@ -23,3 +22,6 @@ venv/
 
 # Python packaging artifacts
 *.egg-info/
+
+# Batch campaign outputs
+/runs/

@@ -1,0 +1,22 @@
+# Physics parameters
+s_vec: [2.0, 5.0, 10.0]
+
+# Scan
+b_min: 0.1
+b_max: 100.0
+n_bpts: 50
+
+# Monte Carlo settings
+n_outer: 5000
+seed: 12345
+
+# Statistical options
+continuity_correction_r: false
+continuity_correction_rstar: true
+
+# Figure selection
+statistics: [r, rstar]
+mc_summaries: [median]
+
+# Output
+out_pdf: "plots/simple_asimov.pdf"

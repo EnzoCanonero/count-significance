@@ -1,55 +1,49 @@
-# Shared statistical utilities for counting experiments.
+"""Statistical tools for known-background and on/off counting experiments."""
 
+from .common import discovery_pvalue, discovery_q0, discovery_z, norm_survival
 from .on import (
-    poisson_tail_on,
-    r_stat_on,
-    q_stat_on,
-    norm_survival,
-    norm_survival as norm_survival_on,
-    r_star_on,
-    pvals_on,
-    median_expected_significance_on,
     expected_significance_on,
+    poisson_tail_on,
+    pvals_on,
+    r_star_on,
+    r_stat_on,
+    u_stat_on,
 )
 from .on_off import (
-    norm_survival as norm_survival_onoff,
-    xlogy,
-    b_profiled,
-    loglik_diff,
-    r_stat_onoff,
-    q_stat_onoff,
-    r_star_onoff,
-    sample_null_toys,
-    required_toys_for_Z_precision,
-    pvals_onoff,
     asimov_Zs_onoff,
-    median_expected_significance_onoff,
+    b_profiled,
     expected_significance_onoff,
+    loglik_diff,
+    pvals_onoff,
+    pvals_onoff_profile_sum,
+    required_toys_for_Z_precision,
+    r_star_onoff,
+    r_stat_onoff,
+    u_stat_onoff,
 )
 
 __all__ = [
-    # simple counting
+    # Shared discovery convention
+    "norm_survival",
+    "discovery_z",
+    "discovery_q0",
+    "discovery_pvalue",
+    # Known-background model
     "poisson_tail_on",
     "r_stat_on",
-    "q_stat_on",
-    "norm_survival",
-    "norm_survival_on",
+    "u_stat_on",
     "r_star_on",
     "pvals_on",
-    "median_expected_significance_on",
     "expected_significance_on",
-    # on/off
-    "norm_survival_onoff",
-    "xlogy",
+    # On/off model
     "b_profiled",
     "loglik_diff",
     "r_stat_onoff",
-    "q_stat_onoff",
+    "u_stat_onoff",
     "r_star_onoff",
-    "sample_null_toys",
     "required_toys_for_Z_precision",
+    "pvals_onoff_profile_sum",
     "pvals_onoff",
     "asimov_Zs_onoff",
-    "median_expected_significance_onoff",
     "expected_significance_onoff",
 ]

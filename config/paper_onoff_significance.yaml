@@ -1,0 +1,24 @@
+# Physics parameters
+s0_vec: [0.0]
+b_vec: [1.0]
+tau_vec: [1.0]
+
+# Scan
+max_observed_count: 10
+m_sigma_offsets: [-1, 0, 1]
+min_m0_values: 3
+drop_zero_m0: true
+trim_to_discovery_tail: true
+
+# Statistical options
+reference_method: "profile_sum"
+# Maximum omitted probability in each truncated Poisson support.
+reference_tail_mass: 1.0e-12
+statistics: [r, rstar]
+
+# Output
+# Paper figure
+out_significance_pdf: "plots/onoff_significance_s0_b1_tau1.pdf"
+
+# Auxiliary p-value plot
+out_pvalue_pdf: "plots/onoff_pval_s0_b1_tau1.pdf"
