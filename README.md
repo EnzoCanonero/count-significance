@@ -85,20 +85,43 @@ N\sim\mathrm{Pois}(s+b),
 L(s)=\frac{(s+b)^n}{n!}e^{-(s+b)},
 $$
 
-with $b$ known. Evaluating $q_0$ on the Asimov count $n_{\mathrm A}=s+b$ gives
+with $b$ known. For $\mu_0=s_0+b$, the model-specific ingredients of the
+higher-order root are
+
+$$
+r(s_0)=\mathrm{sgn}(n-\mu_0)
+\sqrt{2\left[n\ln\frac{n}{\mu_0}+\mu_0-n\right]},
+\qquad
+u(s_0)=\sqrt n\ln\frac{n}{\mu_0},
+$$
+
+$$
+r^\ast(s_0)=r(s_0)+\frac{1}{r(s_0)}
+\ln\left|\frac{u(s_0)}{r(s_0)}\right|.
+$$
+
+For the discovery test, $s_0=0$ and therefore
+
+$$
+r(0)=\mathrm{sgn}(n-b)
+\sqrt{2\left[n\ln\frac{n}{b}+b-n\right]},
+\qquad
+u(0)=\sqrt n\ln\frac{n}{b},
+$$
+
+$$
+r^\ast(0)=r(0)+\frac{1}{r(0)}
+\ln\left|\frac{u(0)}{r(0)}\right|.
+$$
+
+Evaluating $q_0$ on the Asimov count $n_{\mathrm A}=s+b$ gives
 
 $$
 Z_{\mathrm A}=
 \sqrt{2\left[(s+b)\ln\left(1+\frac{s}{b}\right)-s\right]}.
 $$
 
-The corresponding commonly used approximation is
-
-$$
-\mathrm{med}[Z\mid s]\simeq\frac{s}{\sqrt b}.
-$$
-
-For observed significance, the numerical reference is the inclusive Poisson
+The numerical reference is the inclusive Poisson
 tail. The paper configuration applies a half-count continuity correction to
 $r^\ast$ so that its continuous approximation targets the same inclusive tail.
 
@@ -121,7 +144,69 @@ L(s,b)=
 $$
 
 Here $\tau$ is known and controls the precision of the background measurement.
-Profiling $b$ and evaluating $q_0$ on the Asimov data $n_{\mathrm A}=s+b$ and
+At a tested value $s_0$, define
+
+$$
+A=n+m-(1+\tau)s_0,
+\qquad
+\tilde b(s_0)=
+\frac{A+\sqrt{A^2+4(1+\tau)ms_0}}{2(1+\tau)},
+$$
+
+$$
+\mu_{\mathrm{on}}=s_0+\tilde b(s_0),
+\qquad
+\mu_{\mathrm{off}}=\tau\tilde b(s_0),
+\qquad
+\hat s=n-\frac{m}{\tau}.
+$$
+
+The profile log-likelihood difference, signed root, and auxiliary quantity are
+
+$$
+\Delta\ell(s_0)=
+n\ln\frac{n}{\mu_{\mathrm{on}}}
++m\ln\frac{m}{\mu_{\mathrm{off}}}
+-n-m+\mu_{\mathrm{on}}+\mu_{\mathrm{off}},
+$$
+
+$$
+r(s_0)=\mathrm{sgn}(\hat s-s_0)\sqrt{2\Delta\ell(s_0)},
+$$
+
+$$
+u(s_0)=
+\frac{\sqrt{nm}}
+{\sqrt{n/\mu_{\mathrm{on}}^2+m/\tilde b(s_0)^2}}
+\left[
+\frac{1}{\tilde b(s_0)}\ln\frac{n}{\mu_{\mathrm{on}}}
+-\frac{1}{\mu_{\mathrm{on}}}\ln\frac{m}{\mu_{\mathrm{off}}}
+\right],
+$$
+
+$$
+r^\ast(s_0)=r(s_0)+\frac{1}{r(s_0)}
+\ln\left|\frac{u(s_0)}{r(s_0)}\right|.
+$$
+
+For discovery, $s_0=0$ and $\tilde b(0)=(n+m)/(1+\tau)$, giving
+
+$$
+r(0)=\mathrm{sgn}\left(n-\frac{m}{\tau}\right)
+\sqrt{2\left[
+n\ln\frac{(1+\tau)n}{n+m}
++m\ln\frac{(1+\tau)m}{\tau(n+m)}
+\right]},
+$$
+
+$$
+u(0)=\sqrt{\frac{nm}{n+m}}\ln\frac{n\tau}{m},
+\qquad
+r^\ast(0)=r(0)+\frac{1}{r(0)}
+\ln\left|\frac{u(0)}{r(0)}\right|.
+$$
+
+Evaluating $q_0$ on the Asimov data $n_{\mathrm A}=s+b$ and
 $m_{\mathrm A}=\tau b$ gives
 
 $$
@@ -131,16 +216,7 @@ Z_{\mathrm A}=\sqrt{-2\left[
 \right]}.
 $$
 
-The background variance inferred from the control measurement is
-$\sigma_b^2=b/\tau$. The corresponding commonly used approximation is
-
-$$
-\mathrm{med}[Z\mid s]\simeq
-\frac{s}{\sqrt{b+\sigma_b^2}}.
-$$
-
-The same definitions of $r^\ast$ and $q_0^\ast$ apply after profiling the
-background. No half-count continuity correction is used for the
+No half-count continuity correction is used for the
 two-dimensional observation $(n,m)$.
 
 ## Installation
@@ -375,8 +451,8 @@ This repository accompanies:
 > Enzo Canonero and Glen Cowan, *Discovery Sensitivity for a Counting
 > Experiment with Background Uncertainty*.
 
-- [Enzo Canonero](https://orcid.org/0000-0002-7180-4562) — corresponding
-  author, [Enzo.Canonero@rhul.ac.uk](mailto:Enzo.Canonero@rhul.ac.uk)
+- [Enzo Canonero](https://orcid.org/0000-0002-7180-4562) —
+  [Enzo.Canonero@rhul.ac.uk](mailto:Enzo.Canonero@rhul.ac.uk)
 - [Glen Cowan](https://orcid.org/0000-0001-8363-9827) —
   [G.Cowan@rhul.ac.uk](mailto:G.Cowan@rhul.ac.uk)
 
