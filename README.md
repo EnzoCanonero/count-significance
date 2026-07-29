@@ -75,7 +75,7 @@ square root of whichever statistic is under discussion is reported as $Z$,
 with the corresponding Gaussian-tail approximation $1-\Phi(Z)$; $Z_{\mathrm A}$
 is reserved for an Asimov evaluation.
 
-### Known background
+### Poisson case with known background
 
 The observed count follows
 
@@ -125,7 +125,7 @@ The numerical reference is the inclusive Poisson
 tail. The paper configuration applies a half-count continuity correction to
 $r^\ast$ so that its continuous approximation targets the same inclusive tail.
 
-### Background constrained by an on/off measurement
+### Poisson case with uncertain background
 
 The primary and control counts follow
 
