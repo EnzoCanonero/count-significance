@@ -37,21 +37,21 @@ likelihood root
 
 $$
 \lambda(s_0)=
-\frac{L\!\left(s_0,\widehat{\widehat{\boldsymbol\theta}}(s_0)\right)}
-     {L\!\left(\widehat s,\widehat{\boldsymbol\theta}\right)},
+\frac{L\left(s_0,\hat{\hat\theta}(s_0)\right)}
+     {L\left(\hat s,\hat\theta\right)},
 \qquad
-r(s_0)=\operatorname{sign}(\widehat s-s_0)
+r(s_0)=\mathrm{sgn}(\hat s-s_0)
 \sqrt{-2\ln\lambda(s_0)}.
 $$
 
 The discovery test sets $s_0=0$ and uses the one-sided convention
 
 $$
-q_0=\left[\max\{0,r(0)\}\right]^2,
+q_0=\left[\max(0,r(0))\right]^2,
 \qquad
-\sqrt{q_0}=\max\{0,r(0)\},
+\sqrt{q_0}=\max(0,r(0)),
 \qquad
-p_{\rm asym}=1-\Phi\!\left(\sqrt{q_0}\right).
+p_{\mathrm{asym}}=1-\Phi\left(\sqrt{q_0}\right).
 $$
 
 The higher-order root is
@@ -65,14 +65,14 @@ where $u$ is model dependent. The corrected discovery statistic implemented
 here is
 
 $$
-q_0^\ast=\left[\max\{0,r^\ast(0)\}\right]^2,
+q_0^\ast=\left[\max(0,r^\ast(0))\right]^2,
 \qquad
-\sqrt{q_0^\ast}=\max\{0,r^\ast(0)\}.
+\sqrt{q_0^\ast}=\max(0,r^\ast(0)).
 $$
 
 The maximum implements the one-sided discovery convention. The non-negative
 square root of whichever statistic is under discussion is reported as $Z$,
-with the corresponding Gaussian-tail approximation $1-\Phi(Z)$; $Z_{\rm A}$
+with the corresponding Gaussian-tail approximation $1-\Phi(Z)$; $Z_{\mathrm A}$
 is reserved for an Asimov evaluation.
 
 ### Known background
@@ -80,22 +80,22 @@ is reserved for an Asimov evaluation.
 The observed count follows
 
 $$
-N\sim\operatorname{Pois}(s+b),
+N\sim\mathrm{Pois}(s+b),
 \qquad
 L(s)=\frac{(s+b)^n}{n!}e^{-(s+b)},
 $$
 
-with $b$ known. Evaluating $q_0$ on the Asimov count $n_{\rm A}=s+b$ gives
+with $b$ known. Evaluating $q_0$ on the Asimov count $n_{\mathrm A}=s+b$ gives
 
 $$
-Z_{\rm A}=
+Z_{\mathrm A}=
 \sqrt{2\left[(s+b)\ln\left(1+\frac{s}{b}\right)-s\right]}.
 $$
 
 The corresponding commonly used approximation is
 
 $$
-\operatorname{med}[Z\mid s]\simeq\frac{s}{\sqrt b}.
+\mathrm{med}[Z\mid s]\simeq\frac{s}{\sqrt b}.
 $$
 
 For observed significance, the numerical reference is the inclusive Poisson
@@ -107,9 +107,9 @@ $r^\ast$ so that its continuous approximation targets the same inclusive tail.
 The primary and control counts follow
 
 $$
-N\sim\operatorname{Pois}(s+b),
+N\sim\mathrm{Pois}(s+b),
 \qquad
-M\sim\operatorname{Pois}(\tau b),
+M\sim\mathrm{Pois}(\tau b),
 $$
 
 with likelihood
@@ -121,21 +121,21 @@ L(s,b)=
 $$
 
 Here $\tau$ is known and controls the precision of the background measurement.
-Profiling $b$ and evaluating $q_0$ on the Asimov data $n_{\rm A}=s+b$ and
-$m_{\rm A}=\tau b$ gives
+Profiling $b$ and evaluating $q_0$ on the Asimov data $n_{\mathrm A}=s+b$ and
+$m_{\mathrm A}=\tau b$ gives
 
 $$
-Z_{\rm A}=\left\{-2\left[
+Z_{\mathrm A}=\sqrt{-2\left[
 (s+b)\ln\frac{s+(1+\tau)b}{(1+\tau)(s+b)}
 +\tau b\ln\left(1+\frac{s}{(1+\tau)b}\right)
-\right]\right\}^{1/2}.
+\right]}.
 $$
 
 The background variance inferred from the control measurement is
 $\sigma_b^2=b/\tau$. The corresponding commonly used approximation is
 
 $$
-\operatorname{med}[Z\mid s]\simeq
+\mathrm{med}[Z\mid s]\simeq
 \frac{s}{\sqrt{b+\sigma_b^2}}.
 $$
 
@@ -315,7 +315,7 @@ makes the tree dirty and should not be mixed with a production campaign.
 
 ## Monte Carlo precision
 
-For the observed first-order significance $Z=\max\{0,r_{\rm obs}\}$, the on/off
+For the observed first-order significance $Z=\max(0,r_{\mathrm{obs}})$, the on/off
 routine estimates the number of null toys required for a target relative
 uncertainty $\epsilon_Z$ as
 
@@ -333,10 +333,10 @@ Otherwise, if the maximum prevents the requested precision from being reached,
 observation, the finite-sample corrected estimate is
 
 $$
-\widehat p=\frac{K+1}{N+1}.
+\hat p=\frac{K+1}{N+1}.
 $$
 
-The returned `p_mc` is $0.5$ when $r_{\rm obs}\le0$ and otherwise the smaller
+The returned `p_mc` is $0.5$ when $r_{\mathrm{obs}}\le0$ and otherwise the smaller
 of this estimate and $0.5$. The uncapped `p_mc_raw = K/N` is retained as a
 diagnostic. The effective resolution is $1/(N+1)$ and therefore depends on the
 number of toys actually generated, not on the configured maximum.
