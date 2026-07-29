@@ -1,9 +1,4 @@
-"""Known-background Poisson counting model.
-
-The model is N ~ Pois(s + b), with known background b.  The signed roots
-``r(s0)`` and ``r*(s0)`` test a signal value ``s0``.  Discovery results use
-``Z = max(0, r)`` (and the same convention with ``r*``).
-"""
+"""Discovery statistics for a Poisson count with known background."""
 
 import math
 
@@ -15,9 +10,8 @@ from .common import discovery_pvalue, discovery_z
 
 # Likelihood and signed roots
 
-
 def _correct_count(n: float, continuity_correction: bool) -> float:
-    """Return the observed count, optionally shifted by the continuity correction."""
+    """Apply n -> max(n - 1/2, 0) when continuity correction is requested."""
     n_effective = float(n)
     if continuity_correction:
         n_effective = max(n_effective - 0.5, 0.0)
@@ -25,12 +19,9 @@ def _correct_count(n: float, continuity_correction: bool) -> float:
 
 
 def poisson_tail_on(s0: float, b: float, n):
-    """
-    Upward tail P[N >= n | mu0] with mu0 = s0 + b.
-    Uses scipy's exact Poisson SF; supports array n.
-    """
+    """Return the inclusive tail P(N >= n | mu0), where mu0 = s0 + b."""
     mu0 = s0 + b
-    # scipy's sf is P[X > x]; for integer counts, sf(n-1) = P[N >= n]
+    # SciPy defines sf(x) as P(N > x), so sf(n - 1) includes the observed count.
     return poisson.sf(np.asarray(n) - 1, mu0)
 
 
@@ -40,10 +31,10 @@ def r_stat_on(
     n: float,
     continuity_correction: bool = False,
 ) -> float:
-    """Signed likelihood root for testing ``s=s0``.
+    """Return the signed likelihood root for testing s = s0.
 
-    With ``mu0=s0+b``, this is
-    ``sign(n-mu0) sqrt(2 [n log(n/mu0) - (n-mu0)])``.
+    For mu0 = s0 + b, the root is
+    sign(n - mu0) sqrt(2[n log(n / mu0) - (n - mu0)]).
     """
     n = _correct_count(n, continuity_correction)
     mu0 = s0 + b
@@ -68,7 +59,7 @@ def u_stat_on(
     n: float,
     continuity_correction: bool = False,
 ) -> float:
-    """u(s0) = sqrt(n) * log(n / mu0), with mu0 = s0 + b."""
+    """Return u(s0) = sqrt(n) log(n / mu0), where mu0 = s0 + b."""
     n = _correct_count(n, continuity_correction)
     if n == 0:
         return 0.0
@@ -86,21 +77,21 @@ def r_star_on(
     n: float,
     continuity_correction: bool = True,
 ) -> float:
-    """Higher-order root r*(s0), with the paper's endpoint prescriptions.
+    """Return the higher-order root r*(s0).
 
-    Away from the endpoints, ``r*=r+log|u/r|/r``.
-    At an empty sample the logarithmic adjustment is undefined and ``r*=r``.
-    At ``n=s0+b``, its analytic limit is ``1 / (6 sqrt(s0+b))``.
+    Away from the endpoints, r* = r + log|u / r| / r. At n = 0 the logarithmic
+    adjustment is undefined, so r* = r. When the effective count equals
+    s0 + b, its analytic limit is 1 / [6 sqrt(s0 + b)].
     """
     n_eff = _correct_count(n, continuity_correction)
     mu0 = s0 + b
     r = r_stat_on(s0, b, n_eff, continuity_correction=False)
 
-    # At n=0 the logarithmic correction is not defined, so we use r*=r.
+    # At n = 0 the logarithmic correction is undefined, so use r* = r.
     if n_eff == 0:
         return r
 
-    # At n=mu0 both r and u vanish. Use the analytic limit of r*.
+    # At n = mu0 both r and u vanish, so use the analytic limit of r*.
     mle_residual = n_eff - mu0
     mle_scale = abs(n_eff) + abs(s0) + abs(b)
     if continuity_correction:
@@ -126,12 +117,10 @@ def pvals_on(
     continuity_correction_r: bool = False,
     continuity_correction_rstar: bool = True,
 ):
-    """
-    Vectorized p-values for observed counts n in the simple on-channel model.
+    """Return exact and asymptotic discovery p-values for observed counts.
 
-    ``p_exact`` is the inclusive Poisson tail, while ``p_r`` and ``p_rstar``
-    are the Gaussian approximations.  All three apply the discovery cap
-    ``p <= 0.5`` and are returned as arrays.
+    p_exact is the inclusive Poisson tail, while p_r and p_rstar are the
+    Gaussian approximations. All three use the discovery cap p <= 0.5.
     """
     n_arr = np.asarray(n, dtype=float)
     p_exact = np.minimum(poisson_tail_on(s0, b, n_arr), 0.5)
@@ -161,14 +150,17 @@ def pvals_on(
 
 # Expected significance
 
-
 def _mc_significance_summary_on(
     s_true: float,
     b: float,
     n_outer: int = 200,
     seed: int = 12345,
 ) -> tuple[float, float]:
-    """Return the median and mean discovery significance from outer toys."""
+    """Return the median and mean significance from Poisson data toys.
+
+    Each toy has N ~ Pois(s_true + b), with Z obtained from the inclusive
+    background-only Poisson tail.
+    """
     if n_outer <= 0:
         raise ValueError("n_outer must be positive")
 
@@ -189,14 +181,10 @@ def expected_significance_on(
     continuity_correction_r: bool = False,
     continuity_correction_rstar: bool = True,
 ) -> dict:
-    """
-    Vectorized expected discovery Z for the on-channel model.
+    """Return Asimov and Monte Carlo expected discovery significances.
 
-    Return Asimov Z values and the median and mean Z from Monte Carlo toys.
-
-    ``s_true`` and ``b`` may be scalars or broadcastable arrays.  The keys
-    ``Z_A_r``, ``Z_A_rstar``, ``Z_mc_median`` and ``Z_mc_mean`` all have their
-    broadcast shape.
+    The Asimov values use n_A = s_true + b. The Monte Carlo values are the
+    median and mean of Z over Poisson data toys.
     """
     s_arr, b_arr = np.broadcast_arrays(
         np.asarray(s_true, dtype=float),

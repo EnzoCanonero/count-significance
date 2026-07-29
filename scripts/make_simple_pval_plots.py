@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the known-background observed-significance paper plots."""
+"""Create the known-background observed-significance plots used in the paper."""
 
 import argparse
 import sys
@@ -20,6 +20,7 @@ from src.on import pvals_on
 PLOT_FIGSIZE = (6.5, 6.5)
 
 
+# Apply the common style used by the observed-significance plots.
 def _configure_plot_style():
     plt.rcParams.update(
         {
@@ -33,6 +34,7 @@ def _configure_plot_style():
     )
 
 
+# Apply the final tick and spine styling to an axis.
 def _finish_axes(ax):
     ax.tick_params(axis="both", which="major", labelsize=16, width=1.3, length=6)
     ax.tick_params(axis="both", which="minor", width=1.0, length=3)
@@ -41,13 +43,16 @@ def _finish_axes(ax):
 
 
 def _z_from_p(p):
+    """Convert an upper-tail p-value to Z = Phi^(-1)(1 - p)."""
     return norm.isf(np.clip(np.asarray(p, dtype=float), 1e-300, 1.0 - 1e-16))
 
 
+# Mark a legend entry when the continuity correction is applied.
 def _correction_suffix(continuity_corrected: bool) -> str:
     return " (cc)" if continuity_corrected else ""
 
 
+# Set readable limits for an observed-count significance panel.
 def _set_count_significance_limits(ax, n_vals: np.ndarray, *z_arrays: np.ndarray):
     n_vals = np.asarray(n_vals, dtype=float)
     if n_vals.size == 0:
@@ -73,7 +78,7 @@ def _n_max_for_target_z_on(
     target_z: float,
     max_n: int = 10_000,
 ) -> int:
-    """Increase n until the exact Poisson-tail significance reaches target_z."""
+    """Find the first count whose inclusive Poisson tail reaches target Z."""
     if target_z <= 0.0:
         return int(start_n)
 
@@ -99,10 +104,13 @@ def compute_pvalue_scans(
     continuity_correction_r: bool = False,
     continuity_correction_rstar: bool = True,
 ):
-    """Compute the reference and asymptotic p-values for one (s0, b) scan."""
+    """Scan the one-sided discovery tail for fixed signal and background.
+
+    The inclusive Poisson tail is compared with the q0 and q0* asymptotic
+    p-values returned by pvals_on.
+    """
     mu0 = float(s0 + b)
-    # Define the scan range for counts n:
-    # keep the last plateau point, then scan the one-sided discovery tail.
+    # Keep the final plateau point before scanning the discovery tail.
     n_min = 0
     tail_threshold = mu0
     first_tail_n = int(np.floor(tail_threshold)) + 1
@@ -136,13 +144,13 @@ def compute_pvalue_scans(
     }
 
 
+# Write the p-value scan panels.
 def write_pvalue_pdf(
     results: list,
     out_pdf: Path,
     statistics: list,
     continuity_correction_rstar: bool,
 ):
-    """Write the p-value scans to a PDF."""
     rstar_suffix = _correction_suffix(continuity_correction_rstar)
     with PdfPages(out_pdf) as pdf:
         for res in results:
@@ -196,13 +204,13 @@ def write_pvalue_pdf(
             plt.close(fig)
 
 
+# Convert the p-values to significance and write the scan panels.
 def write_significance_pdf(
     results: list,
     out_pdf: Path,
     statistics: list,
     continuity_correction_rstar: bool,
 ):
-    """Write the significance scans to a PDF."""
     rstar_suffix = _correction_suffix(continuity_correction_rstar)
     with PdfPages(out_pdf) as pdf:
         for res in results:
@@ -263,6 +271,7 @@ def write_significance_pdf(
             plt.close(fig)
 
 
+# Load the configuration, calculate the scans, and write both plot sets.
 def main(cfg_path: str):
     _configure_plot_style()
 
