@@ -399,7 +399,7 @@ def write_pvalue_pdf(
                 )
             ax.set_ylabel("p-value (upper tail)")
             ax.set_xlim(n_lo, n_hi)
-            ax.set_xlabel(r"$n_0$ (observed primary count)")
+            ax.set_xlabel(r"Observed count $n$")
             ax.grid(True, which="both", alpha=0.25)
             _add_plot_legends(
                 ax,
@@ -464,7 +464,7 @@ def write_significance_pdf(
                 ax.plot(n_vals, z_ref, marker="x", linestyle="None", ms=4, color=color)
 
             ax.set_ylabel(r"Significance $Z$")
-            ax.set_xlabel("Observed count n")
+            ax.set_xlabel(r"Observed count $n$")
             _set_count_significance_limits(ax, n_lo, n_hi, *z_values_for_limits)
             ax.grid(True, alpha=0.25)
             _add_plot_legends(

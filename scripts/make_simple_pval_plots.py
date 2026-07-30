@@ -236,7 +236,7 @@ def write_pvalue_pdf(
                 stat_anchor=(0.02, 0.02),
                 background_anchor=(0.02, 0.28),
             )
-            ax.set_xlabel("Observed count n")
+            ax.set_xlabel(r"Observed count $n$")
 
             _finish_axes(ax)
             plt.tight_layout()
@@ -309,7 +309,7 @@ def write_significance_pdf(
                 background_anchor=(0.98, 0.28),
             )
 
-            ax_z.set_xlabel("Observed count n")
+            ax_z.set_xlabel(r"Observed count $n$")
 
             _finish_axes(ax_z)
             plt.tight_layout()
