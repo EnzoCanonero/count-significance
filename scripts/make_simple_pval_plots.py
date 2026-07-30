@@ -9,6 +9,7 @@ from typing import Any, Optional
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.lines import Line2D
 from scipy.stats import norm
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,6 +53,35 @@ def _z_from_p(p: ScalarOrArray) -> ScalarOrArray:
 # Mark a legend entry when the continuity correction is applied.
 def _correction_suffix(continuity_corrected: bool) -> str:
     return " (cc)" if continuity_corrected else ""
+
+
+# Add separate, aligned legends for the statistics and background value.
+def _add_stat_and_background_legends(
+    ax,
+    b: float,
+    loc: str,
+    stat_anchor: tuple[float, float],
+    background_anchor: tuple[float, float],
+) -> None:
+    stat_legend = ax.legend(
+        frameon=False,
+        loc=loc,
+        bbox_to_anchor=stat_anchor,
+    )
+    ax.add_artist(stat_legend)
+
+    background_handle = Line2D(
+        [],
+        [],
+        color="none",
+        label=rf"$b={b:g}$",
+    )
+    ax.legend(
+        handles=[background_handle],
+        frameon=False,
+        loc=loc,
+        bbox_to_anchor=background_anchor,
+    )
 
 
 # Set readable limits for an observed-count significance panel.
@@ -142,8 +172,8 @@ def compute_pvalue_scans(
     p_rstar = np.asarray(out["p_rstar"], dtype=float)
 
     return {
+        "b": float(b),
         "n_vals": n_vals,
-        "first_tail_n": first_tail_n,
         "p_ref": p_ref,
         "p_r": p_r,
         "p_rstar": p_rstar,
@@ -164,7 +194,6 @@ def write_pvalue_pdf(
             p_ref = res["p_ref"]
             p_r = res["p_r"]
             p_rstar = res["p_rstar"]
-            first_tail_n = res["first_tail_n"]
 
             fig, ax = plt.subplots(figsize=PLOT_FIGSIZE)
 
@@ -199,9 +228,14 @@ def write_pvalue_pdf(
             )
             ax.set_ylabel("p-value (upper tail)")
             ax.set_xlim(n_vals[0], n_vals[-1])
-            ax.axvline(first_tail_n - 0.5, color="0.55", ls=":", lw=1)
             ax.grid(True, which="both", alpha=0.25)
-            ax.legend(frameon=False, loc="lower left")
+            _add_stat_and_background_legends(
+                ax,
+                b=res["b"],
+                loc="lower left",
+                stat_anchor=(0.02, 0.02),
+                background_anchor=(0.02, 0.28),
+            )
             ax.set_xlabel("Observed count n")
 
             _finish_axes(ax)
@@ -267,7 +301,13 @@ def write_significance_pdf(
             ax_z.set_ylabel(r"Significance $Z$")
             _set_count_significance_limits(ax_z, n_vals, *z_values_for_limits)
             ax_z.grid(True, alpha=0.25)
-            ax_z.legend(frameon=False, loc="lower right")
+            _add_stat_and_background_legends(
+                ax_z,
+                b=res["b"],
+                loc="lower right",
+                stat_anchor=(0.98, 0.02),
+                background_anchor=(0.98, 0.28),
+            )
 
             ax_z.set_xlabel("Observed count n")
 

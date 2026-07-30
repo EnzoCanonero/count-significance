@@ -58,18 +58,22 @@ def _legend_kwargs() -> dict[str, Any]:
     }
 
 
-# Add separate legends for statistics and observed OFF counts.
-def _add_stat_and_m_legends(
+# Add separate legends for statistics, model parameters, and observed OFF counts.
+def _add_plot_legends(
     ax,
     m_values: list[int],
     colors: list[str],
+    b: float,
+    tau: float,
     reference_label: str,
     statistics: list[str],
     r_label: str,
     rstar_label: str,
-    loc: str = "upper right",
+    stat_loc: str,
     stat_anchor: tuple[float, float] = (0.98, 0.98),
-    m_anchor: tuple[float, float] = (0.98, 0.74),
+    parameter_anchor: tuple[float, float] = (0.98, 0.74),
+    m_loc: str = "upper left",
+    m_anchor: tuple[float, float] = (0.02, 0.98),
 ) -> None:
     stat_handles = []
     if "r" in statistics:
@@ -102,11 +106,25 @@ def _add_stat_and_m_legends(
 
     stat_legend = ax.legend(
         handles=stat_handles,
-        loc=loc,
+        loc=stat_loc,
         bbox_to_anchor=stat_anchor,
         **_legend_kwargs(),
     )
     ax.add_artist(stat_legend)
+
+    parameter_handle = Line2D(
+        [],
+        [],
+        color="none",
+        label=rf"$b={b:g},\ \tau={tau:g}$",
+    )
+    parameter_legend = ax.legend(
+        handles=[parameter_handle],
+        loc=stat_loc,
+        bbox_to_anchor=parameter_anchor,
+        **_legend_kwargs(),
+    )
+    ax.add_artist(parameter_legend)
 
     m_handles = [
         Line2D([0], [0], color=colors[idx % len(colors)], lw=2.2, label=rf"$m={m0:g}$")
@@ -114,7 +132,7 @@ def _add_stat_and_m_legends(
     ]
     ax.legend(
         handles=m_handles,
-        loc=loc,
+        loc=m_loc,
         bbox_to_anchor=m_anchor,
         **_legend_kwargs(),
     )
@@ -317,7 +335,6 @@ def compute_pvalue_scans(
                 "tau": float(tau),
                 "m0": int(m0),
                 "n_vals": n_vals,
-                "first_tail_n": first_tail_n,
                 "p_r": p_r,
                 "p_rstar": p_rstar,
                 "p_ref": p_ref,
@@ -380,23 +397,25 @@ def write_pvalue_pdf(
                     capsize=2,
                     color=color,
                 )
-                ax.axvline(result["first_tail_n"] - 0.5, color=color, ls=":", lw=1, alpha=0.35)
-
             ax.set_ylabel("p-value (upper tail)")
             ax.set_xlim(n_lo, n_hi)
             ax.set_xlabel(r"$n_0$ (observed primary count)")
             ax.grid(True, which="both", alpha=0.25)
-            _add_stat_and_m_legends(
+            _add_plot_legends(
                 ax,
                 [result["m0"] for result in group],
                 colors,
-                reference_label,
+                b=group[0]["b"],
+                tau=group[0]["tau"],
+                reference_label=reference_label,
                 statistics=statistics,
                 r_label=r"$1-\Phi(\sqrt{q_0})$",
                 rstar_label=r"$1-\Phi(\sqrt{q_0^\ast})$",
-                loc="lower left",
+                stat_loc="lower left",
                 stat_anchor=(0.02, 0.02),
-                m_anchor=(0.02, 0.26),
+                parameter_anchor=(0.02, 0.26),
+                m_loc="upper right",
+                m_anchor=(0.98, 0.98),
             )
 
             _finish_axes(ax)
@@ -448,17 +467,21 @@ def write_significance_pdf(
             ax.set_xlabel("Observed count n")
             _set_count_significance_limits(ax, n_lo, n_hi, *z_values_for_limits)
             ax.grid(True, alpha=0.25)
-            _add_stat_and_m_legends(
+            _add_plot_legends(
                 ax,
                 [result["m0"] for result in group],
                 colors,
-                reference_label,
+                b=group[0]["b"],
+                tau=group[0]["tau"],
+                reference_label=reference_label,
                 statistics=statistics,
                 r_label=r"$q_0$",
                 rstar_label=r"$q_0^\ast$",
-                loc="lower right",
+                stat_loc="lower right",
                 stat_anchor=(0.98, 0.02),
-                m_anchor=(0.98, 0.26),
+                parameter_anchor=(0.98, 0.26),
+                m_loc="upper left",
+                m_anchor=(0.02, 0.98),
             )
 
             _finish_axes(ax)
