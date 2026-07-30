@@ -15,10 +15,11 @@ import yaml
 
 
 ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+SOURCE_ROOT = ROOT / "src"
+if str(SOURCE_ROOT) not in sys.path:
+    sys.path.insert(0, str(SOURCE_ROOT))
 
-from src.on_off import pvals_onoff  # noqa: E402
+from count_significance.on_off import pvals_onoff  # noqa: E402
 
 
 RESULT_FIELDS = (
@@ -111,9 +112,10 @@ def finite_number(value: Any, name: str) -> float:
 
 # Hash the frozen statistical source and this worker.
 def frozen_source_sha256() -> str:
+    package_dir = ROOT / "src" / "count_significance"
     source_files = [
         path
-        for path in (ROOT / "src").rglob("*")
+        for path in package_dir.rglob("*")
         if path.is_file()
         and "__pycache__" not in path.parts
         and path.suffix != ".pyc"

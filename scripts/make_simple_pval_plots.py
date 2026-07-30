@@ -13,11 +13,12 @@ from matplotlib.lines import Line2D
 from scipy.stats import norm
 
 ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+SOURCE_ROOT = ROOT / "src"
+if str(SOURCE_ROOT) not in sys.path:
+    sys.path.insert(0, str(SOURCE_ROOT))
 
-from src.common import ScalarOrArray, load_yaml
-from src.on import pvals_on
+from count_significance.common import ScalarOrArray, load_yaml
+from count_significance.on import pvals_on
 
 
 PLOT_FIGSIZE = (6.5, 6.5)

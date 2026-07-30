@@ -20,8 +20,8 @@ dependencies = [
 Repository = "https://github.com/EnzoCanonero/count-significance"
 
 [tool.setuptools]
-package-dir = {"" = "."}
+package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["src", "src.*"]
+where = ["src"]
+include = ["count_significance", "count_significance.*"]

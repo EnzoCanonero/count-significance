@@ -19,13 +19,16 @@ from scipy.stats import norm
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+SOURCE_ROOT = ROOT / "src"
+if str(SOURCE_ROOT) not in sys.path:
+    sys.path.insert(0, str(SOURCE_ROOT))
 
 from scripts.make_onoff_medsig_plots import (  # noqa: E402
     configure_plot_style,
     mask_mc_for_display,
     write_median_significance_pdfs,
 )
-from src.on_off import (  # noqa: E402
+from count_significance.on_off import (  # noqa: E402
     asimov_Zs_onoff,
     b_profiled,
     r_stat_onoff,
@@ -54,9 +57,10 @@ def file_sha256(path: Path) -> str:
 
 # Hash the frozen statistical source and worker stored with the campaign.
 def frozen_source_sha256(input_dir: Path) -> str:
+    package_dir = input_dir / "src" / "count_significance"
     source_files = [
         path
-        for path in (input_dir / "src").rglob("*")
+        for path in package_dir.rglob("*")
         if path.is_file()
         and "__pycache__" not in path.parts
         and path.suffix != ".pyc"

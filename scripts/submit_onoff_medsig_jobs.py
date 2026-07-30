@@ -313,9 +313,10 @@ def validate_signal_jobs(config: dict[str, Any]) -> list[dict[str, Any]]:
 
 # Hash the frozen statistical source and worker copied into the campaign.
 def frozen_source_sha256(input_dir: Path) -> str:
+    package_dir = input_dir / "src" / "count_significance"
     source_files = [
         path
-        for path in (input_dir / "src").rglob("*")
+        for path in package_dir.rglob("*")
         if path.is_file()
         and "__pycache__" not in path.parts
         and path.suffix != ".pyc"
@@ -357,8 +358,8 @@ def write_campaign(
     # The frozen snapshot prevents later edits from mixing implementations.
     input_dir = run_dir / "input"
     shutil.copytree(
-        ROOT / "src",
-        input_dir / "src",
+        ROOT / "src" / "count_significance",
+        input_dir / "src" / "count_significance",
         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
     )
     (input_dir / "scripts").mkdir()

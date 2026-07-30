@@ -10,11 +10,12 @@ import numpy as np
 from matplotlib.lines import Line2D
 
 ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+SOURCE_ROOT = ROOT / "src"
+if str(SOURCE_ROOT) not in sys.path:
+    sys.path.insert(0, str(SOURCE_ROOT))
 
-from src.common import load_yaml
-from src.on import expected_significance_on
+from count_significance.common import load_yaml
+from count_significance.on import expected_significance_on
 
 
 PLOT_FIGSIZE = (6.5, 6.5)

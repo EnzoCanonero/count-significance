@@ -22,6 +22,8 @@ venv/
 
 # Python packaging artifacts
 *.egg-info/
+/build/
+/dist/
 
 # Batch campaign outputs
 /runs/

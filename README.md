@@ -187,11 +187,15 @@ exact dependency-level reproducibility is required.
 
 ## Python interface
 
-The current import namespace follows the source layout:
+The public Python namespace is `count_significance`:
 
 ```python
-from src.on import expected_significance_on, pvals_on
-from src.on_off import asimov_Zs_onoff, pvals_onoff_profile_sum
+from count_significance import (
+    asimov_Zs_onoff,
+    expected_significance_on,
+    pvals_on,
+    pvals_onoff_profile_sum,
+)
 
 # Known background: exact, first-order and higher-order observed p-values.
 known = pvals_on(s0=0.0, b=1.0, n=4)
@@ -204,12 +208,13 @@ known_expected = expected_significance_on(s_true=5.0, b=10.0)
 onoff_expected = asimov_Zs_onoff(s_true=5.0, b=10.0, tau=2.0)
 ```
 
-The principal modules are:
+The implementation is organised into three modules:
 
-- `src.common`: the shared one-sided discovery convention and Gaussian tail;
-- `src.on`: exact and asymptotic known-background calculations;
-- `src.on_off`: profiling, on/off reference calculations, nested Monte Carlo,
-  and expected significance.
+- `count_significance.common`: the shared discovery convention and Gaussian
+  tail;
+- `count_significance.on`: exact and asymptotic known-background calculations;
+- `count_significance.on_off`: profiling, on/off reference calculations,
+  nested Monte Carlo, and expected significance.
 
 For the on/off model, `pvals_onoff_profile_sum` is a deterministic plug-in
 reference: it profiles the background under the tested signal and sums the
@@ -308,6 +313,7 @@ runs/<run-name>/
 ├── manifest.json
 ├── input/
 │   ├── src/
+│   │   └── count_significance/
 │   └── scripts/
 ├── results/
 │   ├── s2/
@@ -367,7 +373,8 @@ number of toys actually generated, not on the configured maximum.
 
 ```text
 count-significance/
-├── src/          statistical definitions and numerical routines
+├── src/
+│   └── count_significance/  statistical definitions and numerical routines
 ├── scripts/      plotting, submission, worker and collection commands
 ├── config/       paper YAML files and the generic HTCondor description
 ├── notebooks/    interactive introduction to the two models
@@ -375,8 +382,9 @@ count-significance/
 └── runs/         ignored HTCondor campaign data, created at submission
 ```
 
-Scheduler-specific logic is kept out of `src/`; both serial and batch workflows
-call the same mathematical implementation in `src/on_off.py`.
+Scheduler-specific logic is kept out of the Python package; both serial and
+batch workflows call the same mathematical implementation in
+`src/count_significance/on_off.py`.
 
 ## Reproducibility conventions
 
