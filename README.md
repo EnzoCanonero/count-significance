@@ -23,6 +23,7 @@ for the high-precision on/off calculation.
 
 - [Statistical overview](#statistical-overview)
 - [Installation](#installation)
+- [Testing](#testing)
 - [Python interface](#python-interface)
 - [Reproducing the plots](#reproducing-the-plots)
 - [HTCondor production workflow](#htcondor-production-workflow)
@@ -184,6 +185,15 @@ the package; install it separately to use
 `pyproject.toml` specifies compatible minimum versions rather than a lock file.
 For an archival production run, record the resolved environment separately if
 exact dependency-level reproducibility is required.
+
+## Testing
+
+Install the optional test dependency and run the core statistical tests with:
+
+```bash
+python3 -m pip install -e ".[test]"
+pytest
+```
 
 ## Python interface
 

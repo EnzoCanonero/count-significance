@@ -1,6 +1,7 @@
 # Python cache files
 __pycache__/
 *.py[cod]
+.pytest_cache/
 
 # Notebook checkpoints
 .ipynb_checkpoints/
