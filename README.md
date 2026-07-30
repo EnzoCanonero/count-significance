@@ -29,6 +29,8 @@ for the high-precision on/off calculation.
 - [Monte Carlo precision](#monte-carlo-precision)
 - [Repository layout](#repository-layout)
 - [Companion manuscript](#companion-manuscript)
+- [Citation](#citation)
+- [License](#license)
 
 ## Statistical overview
 
@@ -400,4 +402,13 @@ This repository accompanies:
 - [Glen Cowan](https://orcid.org/0000-0001-8363-9827) —
   [G.Cowan@rhul.ac.uk](mailto:G.Cowan@rhul.ac.uk)
 
-Publication metadata and a formal citation will be added when available.
+Publication metadata for the manuscript will be added when available.
+
+## Citation
+
+If you use Count Significance, please cite the software using the metadata in
+[`CITATION.cff`](CITATION.cff) and cite the accompanying manuscript.
+
+## License
+
+Count Significance is distributed under the [MIT License](LICENSE).

@@ -1,0 +1,38 @@
+cff-version: 1.2.0
+message: >-
+  If you use this software, please cite the software using the metadata
+  below and cite the accompanying manuscript.
+title: Count Significance
+type: software
+
+authors:
+  - family-names: Canonero
+    given-names: Enzo
+    orcid: "https://orcid.org/0000-0002-7180-4562"
+    affiliation: Physics Department, Royal Holloway, University of London
+
+  - family-names: Cowan
+    given-names: Glen
+    orcid: "https://orcid.org/0000-0001-8363-9827"
+    affiliation: Physics Department, Royal Holloway, University of London
+
+repository-code: "https://github.com/EnzoCanonero/count-significance"
+url: "https://github.com/EnzoCanonero/count-significance"
+
+abstract: >-
+  Python implementations and reproducible plotting workflows for calculating
+  discovery significances and p-values in Poisson counting experiments with
+  known or uncertain background rates. The repository implements first-order
+  profile-likelihood approximations, higher-order Barndorff-Nielsen r-star
+  corrections, reference calculations, and Monte Carlo studies accompanying
+  the manuscript Discovery Sensitivity for a Counting Experiment with
+  Background Uncertainty.
+
+keywords:
+  - statistics
+  - particle physics
+  - counting experiments
+  - profile likelihood
+  - discovery significance
+  - Asimov data set
+  - higher-order asymptotics
