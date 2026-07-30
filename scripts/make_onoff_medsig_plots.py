@@ -471,8 +471,16 @@ def _plot_combined_rel_sig_panel(
     mc_summaries: list[str],
     z_display_max: Optional[float] = None,
 ) -> None:
-    for rel_sig_idx, rel_sig in enumerate(rel_sig_vec):
-        color = colors[rel_sig_idx % len(colors)]
+    # Show the larger relative uncertainty first, without changing the data order.
+    display_order = np.argsort(rel_sig_vec)[::-1]
+    display_colors = [
+        colors[color_idx % len(colors)]
+        for color_idx in range(len(display_order))
+    ]
+
+    for color_idx, rel_sig_idx in enumerate(display_order):
+        rel_sig = rel_sig_vec[rel_sig_idx]
+        color = display_colors[color_idx]
         if "r" in statistics:
             ax.plot(b_values, scan_results["Z_A_r"][s_idx, rel_sig_idx], color=color, linestyle="-")
         if "rstar" in statistics:
@@ -517,8 +525,11 @@ def _plot_combined_rel_sig_panel(
     _add_combined_legends(
         ax,
         s_true=s_true,
-        labels=[rf"$\sigma_b/b={rel_sig:g}$" for rel_sig in rel_sig_vec],
-        colors=colors,
+        labels=[
+            rf"$\sigma_b/b={rel_sig_vec[rel_sig_idx]:g}$"
+            for rel_sig_idx in display_order
+        ],
+        colors=display_colors,
         n_configs=len(rel_sig_vec),
         statistics=statistics,
         mc_summaries=mc_summaries,

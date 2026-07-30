@@ -72,6 +72,7 @@ def _add_plot_legends(
     rstar_label: str,
     stat_loc: str,
     stat_anchor: tuple[float, float] = (0.98, 0.98),
+    parameter_loc: str = "upper left",
     parameter_anchor: tuple[float, float] = (0.98, 0.74),
     m_loc: str = "upper left",
     m_anchor: tuple[float, float] = (0.02, 0.98),
@@ -119,11 +120,14 @@ def _add_plot_legends(
         color="none",
         label=rf"$b={b:g},\ \tau={tau:g}$",
     )
+    parameter_legend_kwargs = _legend_kwargs()
+    parameter_legend_kwargs["handlelength"] = 0.0
+    parameter_legend_kwargs["handletextpad"] = 0.0
     parameter_legend = ax.legend(
         handles=[parameter_handle],
-        loc=stat_loc,
+        loc=parameter_loc,
         bbox_to_anchor=parameter_anchor,
-        **_legend_kwargs(),
+        **parameter_legend_kwargs,
     )
     ax.add_artist(parameter_legend)
 
@@ -139,6 +143,13 @@ def _add_plot_legends(
     )
 
 
+# Add horizontal space so markers at the ends of the count scan remain visible.
+def _set_count_x_limits(ax, n_lo: float, n_hi: float) -> None:
+    x_span = max(float(n_hi - n_lo), 1.0)
+    x_pad = max(0.5, 0.06 * x_span)
+    ax.set_xlim(float(n_lo) - x_pad, float(n_hi) + x_pad)
+
+
 # Set readable limits for an observed-count significance panel.
 def _set_count_significance_limits(
     ax,
@@ -146,9 +157,7 @@ def _set_count_significance_limits(
     n_hi: float,
     *z_arrays: np.ndarray,
 ) -> None:
-    x_span = max(float(n_hi - n_lo), 1.0)
-    x_pad = max(0.5, 0.06 * x_span)
-    ax.set_xlim(float(n_lo) - x_pad, float(n_hi) + x_pad)
+    _set_count_x_limits(ax, n_lo, n_hi)
 
     z_values = np.concatenate([np.ravel(np.asarray(values, dtype=float)) for values in z_arrays])
     z_values = z_values[np.isfinite(z_values)]
@@ -362,6 +371,7 @@ def write_pvalue_pdf(
         for _, group in sorted(grouped.items()):
             group = sorted(group, key=lambda item: item["m0"])
             fig, ax = plt.subplots(figsize=PLOT_FIGSIZE)
+            ax.set_box_aspect(1)
 
             n_lo, n_hi = np.inf, -np.inf
             for idx, result in enumerate(group):
@@ -399,7 +409,7 @@ def write_pvalue_pdf(
                     color=color,
                 )
             ax.set_ylabel("p-value (upper tail)")
-            ax.set_xlim(n_lo, n_hi)
+            _set_count_x_limits(ax, n_lo, n_hi)
             ax.set_xlabel(r"Observed count $n$")
             ax.grid(True, which="both", alpha=0.25)
             _add_plot_legends(
@@ -414,9 +424,10 @@ def write_pvalue_pdf(
                 rstar_label=r"$1-\Phi(\sqrt{q_0^\ast})$",
                 stat_loc="lower left",
                 stat_anchor=(0.02, 0.02),
-                parameter_anchor=(0.02, 0.26),
+                parameter_loc="upper right",
+                parameter_anchor=(0.98, 0.98),
                 m_loc="upper right",
-                m_anchor=(0.98, 0.98),
+                m_anchor=(0.98, 0.90),
             )
 
             _finish_axes(ax)
@@ -480,9 +491,10 @@ def write_significance_pdf(
                 rstar_label=r"$q_0^\ast$",
                 stat_loc="lower right",
                 stat_anchor=(0.98, 0.02),
-                parameter_anchor=(0.98, 0.26),
+                parameter_loc="upper left",
+                parameter_anchor=(0.02, 0.98),
                 m_loc="upper left",
-                m_anchor=(0.02, 0.98),
+                m_anchor=(0.02, 0.90),
             )
 
             _finish_axes(ax)

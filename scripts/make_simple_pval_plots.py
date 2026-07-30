@@ -60,13 +60,14 @@ def _correction_suffix(continuity_corrected: bool) -> str:
 def _add_stat_and_background_legends(
     ax,
     b: float,
-    loc: str,
+    stat_loc: str,
     stat_anchor: tuple[float, float],
+    background_loc: str,
     background_anchor: tuple[float, float],
 ) -> None:
     stat_legend = ax.legend(
         frameon=False,
-        loc=loc,
+        loc=stat_loc,
         bbox_to_anchor=stat_anchor,
     )
     ax.add_artist(stat_legend)
@@ -80,9 +81,21 @@ def _add_stat_and_background_legends(
     ax.legend(
         handles=[background_handle],
         frameon=False,
-        loc=loc,
+        loc=background_loc,
         bbox_to_anchor=background_anchor,
+        handlelength=0.0,
+        handletextpad=0.0,
     )
+
+
+# Add horizontal space so markers at the ends of the count scan remain visible.
+def _set_count_x_limits(ax, n_vals: np.ndarray) -> None:
+    n_vals = np.asarray(n_vals, dtype=float)
+    if n_vals.size == 0:
+        return
+
+    x_pad = max(0.5, 0.06 * max(float(n_vals[-1] - n_vals[0]), 1.0))
+    ax.set_xlim(float(n_vals[0]) - x_pad, float(n_vals[-1]) + x_pad)
 
 
 # Set readable limits for an observed-count significance panel.
@@ -95,8 +108,7 @@ def _set_count_significance_limits(
     if n_vals.size == 0:
         return
 
-    x_pad = max(0.5, 0.06 * max(float(n_vals[-1] - n_vals[0]), 1.0))
-    ax.set_xlim(float(n_vals[0]) - x_pad, float(n_vals[-1]) + x_pad)
+    _set_count_x_limits(ax, n_vals)
 
     z_values = np.concatenate([np.ravel(np.asarray(values, dtype=float)) for values in z_arrays])
     z_values = z_values[np.isfinite(z_values)]
@@ -197,6 +209,7 @@ def write_pvalue_pdf(
             p_rstar = res["p_rstar"]
 
             fig, ax = plt.subplots(figsize=PLOT_FIGSIZE)
+            ax.set_box_aspect(1)
 
             if "r" in statistics:
                 ax.semilogy(
@@ -228,14 +241,15 @@ def write_pvalue_pdf(
                 color="0.15",
             )
             ax.set_ylabel("p-value (upper tail)")
-            ax.set_xlim(n_vals[0], n_vals[-1])
+            _set_count_x_limits(ax, n_vals)
             ax.grid(True, which="both", alpha=0.25)
             _add_stat_and_background_legends(
                 ax,
                 b=res["b"],
-                loc="lower left",
+                stat_loc="lower left",
                 stat_anchor=(0.02, 0.02),
-                background_anchor=(0.02, 0.28),
+                background_loc="upper right",
+                background_anchor=(0.98, 0.98),
             )
             ax.set_xlabel(r"Observed count $n$")
 
@@ -305,9 +319,10 @@ def write_significance_pdf(
             _add_stat_and_background_legends(
                 ax_z,
                 b=res["b"],
-                loc="lower right",
+                stat_loc="lower right",
                 stat_anchor=(0.98, 0.02),
-                background_anchor=(0.98, 0.28),
+                background_loc="upper left",
+                background_anchor=(0.0, 0.98),
             )
 
             ax_z.set_xlabel(r"Observed count $n$")
