@@ -8,7 +8,6 @@ from scipy.stats import norm, poisson
 
 from .common import ScalarOrArray, discovery_pvalue, discovery_z, norm_survival
 
-
 # Profile likelihood and signed roots
 
 

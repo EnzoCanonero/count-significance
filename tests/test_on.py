@@ -3,8 +3,8 @@
 import math
 
 import numpy as np
-from numpy.testing import assert_allclose
 import pytest
+from numpy.testing import assert_allclose
 from scipy.stats import norm
 
 from count_significance.on import (

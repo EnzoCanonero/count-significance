@@ -21,7 +21,6 @@ if str(SOURCE_ROOT) not in sys.path:
 from count_significance.common import ScalarOrArray, load_yaml
 from count_significance.on_off import pvals_onoff, pvals_onoff_profile_sum
 
-
 PLOT_FIGSIZE = (6.5, 6.5)
 
 

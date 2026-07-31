@@ -7,7 +7,6 @@ from scipy.stats import norm, poisson
 
 from .common import ScalarOrArray, discovery_pvalue, discovery_z
 
-
 # Likelihood and signed roots
 
 def _correct_count(n: float, continuity_correction: bool) -> float:

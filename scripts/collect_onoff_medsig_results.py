@@ -15,7 +15,6 @@ import numpy as np
 import yaml
 from scipy.stats import norm
 
-
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -23,18 +22,17 @@ SOURCE_ROOT = ROOT / "src"
 if str(SOURCE_ROOT) not in sys.path:
     sys.path.insert(0, str(SOURCE_ROOT))
 
-from scripts.make_onoff_medsig_plots import (  # noqa: E402
-    configure_plot_style,
-    mask_mc_for_display,
-    write_median_significance_pdfs,
-)
 from count_significance.on_off import (  # noqa: E402
     asimov_Zs_onoff,
     b_profiled,
     r_stat_onoff,
     required_toys_for_Z_precision,
 )
-
+from scripts.make_onoff_medsig_plots import (  # noqa: E402
+    configure_plot_style,
+    mask_mc_for_display,
+    write_median_significance_pdfs,
+)
 
 SCHEMA_VERSION = 1
 RUN_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")

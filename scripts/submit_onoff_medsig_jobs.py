@@ -16,7 +16,6 @@ from typing import Any
 
 import yaml
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SUBMIT_FILE = ROOT / "config" / "onoff_medsig_condor.sub"
 WORKER = ROOT / "scripts" / "run_onoff_medsig_job.py"

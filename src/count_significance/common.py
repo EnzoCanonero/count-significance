@@ -3,9 +3,8 @@
 from typing import Any, Union
 
 import numpy as np
-from scipy.special import erfc
 import yaml
-
+from scipy.special import erfc
 
 ScalarOrArray = Union[float, np.ndarray]
 

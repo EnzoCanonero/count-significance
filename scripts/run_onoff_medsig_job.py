@@ -13,14 +13,12 @@ from typing import Any
 import numpy as np
 import yaml
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_ROOT = ROOT / "src"
 if str(SOURCE_ROOT) not in sys.path:
     sys.path.insert(0, str(SOURCE_ROOT))
 
 from count_significance.on_off import pvals_onoff  # noqa: E402
-
 
 RESULT_FIELDS = (
     "p_mc",

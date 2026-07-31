@@ -18,7 +18,6 @@ if str(SOURCE_ROOT) not in sys.path:
 from count_significance.common import load_yaml
 from count_significance.on_off import expected_significance_onoff
 
-
 PLOT_FIGSIZE = (6.5, 6.5)
 PLOT_ADJUST = {
     "left": 0.20,

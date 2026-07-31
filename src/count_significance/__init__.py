@@ -16,9 +16,9 @@ from .on_off import (
     loglik_diff,
     pvals_onoff,
     pvals_onoff_profile_sum,
-    required_toys_for_Z_precision,
     r_star_onoff,
     r_stat_onoff,
+    required_toys_for_Z_precision,
     u_stat_onoff,
 )
 
