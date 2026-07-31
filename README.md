@@ -1,5 +1,7 @@
 # Count Significance
 
+[![CI](https://github.com/EnzoCanonero/count-significance/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/EnzoCanonero/count-significance/actions/workflows/ci.yml)
+
 Accurate significance and p-values for count data.
 
 Count Significance contains the statistical calculations and reproducible
