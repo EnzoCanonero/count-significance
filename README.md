@@ -5,8 +5,7 @@ Accurate significance and p-values for count data.
 Count Significance contains the statistical calculations and reproducible
 plotting workflows for the manuscript *Discovery Sensitivity for a
 Counting Experiment with Background Uncertainty*. It compares first-order
-profile-likelihood results with the Barndorff–Nielsen $r^\ast$ correction, exact or
-profiled reference calculations, and Monte Carlo estimates of the median
+profile-likelihood results with the Barndorff–Nielsen $r^\ast$ correction, exact and Monte Carlo estimates of the median
 discovery significance.
 
 The repository treats two models:
@@ -16,8 +15,7 @@ The repository treats two models:
   background.
 
 The code provides the numerical routines, the YAML configurations used for the
-paper figures, practical serial workflows, and a reproducible HTCondor workflow
-for the high-precision on/off calculation.
+paper figures, practical serial workflows, and a reproducible HTCondor-based parallel workflow for Monte Carlo simulations used in the high-precision on/off calculation.
 
 ## Contents
 
@@ -35,18 +33,18 @@ for the high-precision on/off calculation.
 
 ## Statistical overview
 
-For a tested signal value $s_0$, define the profile-likelihood ratio
+For a tested signal value $s$, define the profile-likelihood ratio
 
 $$
-\lambda(s_0)=
-\frac{L\left(s_0,\hat{\hat\theta}(s_0)\right)}
+\lambda(s)=
+\frac{L\left(s,\hat{\hat\theta}(s)\right)}
      {L\left(\hat s,\hat\theta\right)}.
 $$
 
-The signed likelihood root $r(s_0)$ and its higher-order correction
-$r^\ast(s_0)$ are constructed from this ratio. Their expressions for a
+The signed likelihood root $r(s)$ and its higher-order correction
+$r^\ast(s)$ are constructed from this ratio. Their expressions for a
 general tested signal value are given in the manuscript; here we
-focus on the discovery test, for which $s_0=0$.
+focus on the discovery test, for which $s=0$.
 
 The discovery test uses the one-sided convention
 
@@ -81,9 +79,9 @@ N\sim\mathrm{Pois}(s+b),
 L(s)=\frac{(s+b)^n}{n!}e^{-(s+b)},
 $$
 
-with $b$ known. The general expressions for $r(s_0)$, its auxiliary quantity
-$u(s_0)$, and $r^\ast(s_0)$ are given in the manuscript. For the
-discovery test, $s_0=0$ and
+with $b$ known. The general expressions for $r(s)$, its auxiliary quantity
+$u(s)$, and $r^\ast(s)$ are given in the manuscript. For the
+discovery test, $s=0$ and
 
 $$
 r(0)=\mathrm{sgn}(n-b)
@@ -109,7 +107,7 @@ tail. The paper configuration applies a half-count continuity correction to
 $r^\ast$ so that its continuous approximation targets the same inclusive tail.
 The higher-order Asimov significance $Z_{\mathrm A}^\ast$ is obtained by
 evaluating the corrected discovery statistic on the same Asimov count, with
-this continuity correction, and taking its non-negative square root.
+this continuity correction.
 
 ### Poisson case with uncertain background
 
@@ -131,8 +129,8 @@ $$
 
 Here $\tau$ is known and controls the precision of the background measurement.
 For a general tested signal value, the nuisance background is profiled before
-constructing $r(s_0)$, $u(s_0)$, and $r^\ast(s_0)$; the full expressions are
-given in the manuscript. For discovery, $s_0=0$ and
+constructing $r(s)$, $u(s)$, and $r^\ast(s)$; the full expressions are
+given in the manuscript. For discovery, $s=0$ and
 $\tilde b(0)=(n+m)/(1+\tau)$, giving
 
 $$
@@ -188,11 +186,19 @@ exact dependency-level reproducibility is required.
 
 ## Testing
 
-Install the optional test dependency and run the core statistical tests with:
+Install the optional development dependencies and run the core statistical
+tests with:
 
 ```bash
-python3 -m pip install -e ".[test]"
+python3 -m pip install -e ".[dev]"
 pytest
+```
+
+Run the remaining development checks used by continuous integration with:
+
+```bash
+python3 -m ruff check src scripts tests
+python3 -m mypy
 ```
 
 ## Python interface
@@ -419,8 +425,6 @@ This repository accompanies:
   [Enzo.Canonero@rhul.ac.uk](mailto:Enzo.Canonero@rhul.ac.uk)
 - [Glen Cowan](https://orcid.org/0000-0001-8363-9827) —
   [G.Cowan@rhul.ac.uk](mailto:G.Cowan@rhul.ac.uk)
-
-Publication metadata for the manuscript will be added when available.
 
 ## Citation
 
