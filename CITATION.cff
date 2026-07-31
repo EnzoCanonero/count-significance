@@ -4,6 +4,8 @@ message: >-
   below and cite the accompanying manuscript.
 title: Count Significance
 type: software
+version: 0.2.0
+license: MIT
 
 authors:
   - family-names: Canonero
@@ -29,10 +31,8 @@ abstract: >-
   Background Uncertainty.
 
 keywords:
-  - statistics
-  - particle physics
-  - counting experiments
-  - profile likelihood
   - discovery significance
   - Asimov data set
   - higher-order asymptotics
+  - Poisson counting experiment
+  - particle physics

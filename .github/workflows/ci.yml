@@ -20,7 +20,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-      - run: python -m pip install -e ".[dev]"
+      - run: python -m pip install -e . pytest
       - run: pytest
 
   quality:
@@ -34,3 +34,21 @@ jobs:
       - run: python -m pip install -e ".[dev]"
       - run: python -m ruff check src scripts tests
       - run: python -m mypy
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install build twine
+      - run: python -m build
+      - run: python -m twine check dist/*
+      - run: python -m pip install dist/*.whl
+      - run: >-
+          cd /tmp &&
+          python -c "from importlib.metadata import version;
+          import count_significance;
+          assert count_significance.__version__ == version('count-significance')"

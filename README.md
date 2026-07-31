@@ -5,8 +5,9 @@ Accurate significance and p-values for count data.
 Count Significance contains the statistical calculations and reproducible
 plotting workflows for the manuscript *Discovery Sensitivity for a
 Counting Experiment with Background Uncertainty*. It compares first-order
-profile-likelihood results with the Barndorff–Nielsen $r^\ast$ correction, exact and Monte Carlo estimates of the median
-discovery significance.
+profile-likelihood results with the Barndorff–Nielsen $r^\ast$ correction,
+exact calculations, and Monte Carlo estimates of the median discovery
+significance.
 
 The repository treats two models:
 
@@ -15,7 +16,8 @@ The repository treats two models:
   background.
 
 The code provides the numerical routines, the YAML configurations used for the
-paper figures, practical serial workflows, and a reproducible HTCondor-based parallel workflow for Monte Carlo simulations used in the high-precision on/off calculation.
+paper figures, practical serial workflows, and a reproducible HTCondor-based
+parallel workflow for the high-precision on/off Monte Carlo calculation.
 
 ## Contents
 
@@ -27,6 +29,7 @@ paper figures, practical serial workflows, and a reproducible HTCondor-based par
 - [HTCondor production workflow](#htcondor-production-workflow)
 - [Monte Carlo precision](#monte-carlo-precision)
 - [Repository layout](#repository-layout)
+- [Reproducibility conventions](#reproducibility-conventions)
 - [Companion manuscript](#companion-manuscript)
 - [Citation](#citation)
 - [License](#license)
@@ -105,9 +108,9 @@ $$
 The numerical reference is the inclusive Poisson
 tail. The paper configuration applies a half-count continuity correction to
 $r^\ast$ so that its continuous approximation targets the same inclusive tail.
-The higher-order Asimov significance $Z_{\mathrm A}^\ast$ is obtained by
-evaluating the corrected discovery statistic on the same Asimov count, with
-this continuity correction.
+The higher-order Asimov significance $Z_{\mathrm A}$ obtained from
+$q_0^\ast$ is evaluated on the same Asimov count with this continuity
+correction.
 
 ### Poisson case with uncertain background
 
@@ -160,29 +163,35 @@ $$
 
 No half-count continuity correction is used for the
 two-dimensional observation $(n,m)$.
-The higher-order Asimov significance $Z_{\mathrm A}^\ast$ is found by
-evaluating the corrected discovery statistic directly on the same Asimov pair
-and taking its non-negative square root.
+The higher-order Asimov significance $Z_{\mathrm A}$ obtained from
+$q_0^\ast$ is evaluated directly on the same Asimov pair.
 
 ## Installation
 
-The package supports Python 3.9 and newer. From the repository root:
+The package supports Python 3.9 and newer. Install a released version with:
+
+```bash
+python3 -m pip install count-significance
+```
+
+To work from the repository, including the plotting and development
+dependencies, use:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python3 -m pip install --upgrade pip
-python3 -m pip install -e .
+python3 -m pip install -e ".[dev]"
 ```
 
-The runtime dependencies are NumPy, SciPy, Matplotlib, and PyYAML and are
-installed from `pyproject.toml`. Jupyter is optional and is not installed by
-the package; install it separately to use
+The runtime dependencies are NumPy, SciPy, and PyYAML. The `dev` extra adds
+Matplotlib and the test and quality-control tools used in this repository.
+Jupyter is optional and is not installed by the package; install it to use
 [`notebooks/playground.ipynb`](notebooks/playground.ipynb).
 
-`pyproject.toml` specifies compatible minimum versions rather than a lock file.
-For an archival production run, record the resolved environment separately if
-exact dependency-level reproducibility is required.
+Dependency versions are not pinned. For an archival production run, record the
+resolved environment separately if exact dependency-level reproducibility is
+required.
 
 ## Testing
 

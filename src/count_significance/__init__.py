@@ -1,5 +1,7 @@
 """Statistical tools for known-background and on/off counting experiments."""
 
+from importlib.metadata import PackageNotFoundError, version
+
 from .common import discovery_pvalue, discovery_q0, discovery_z, norm_survival
 from .on import (
     expected_significance_on,
@@ -22,7 +24,13 @@ from .on_off import (
     u_stat_onoff,
 )
 
+try:
+    __version__ = version("count-significance")
+except PackageNotFoundError:
+    __version__ = "0+unknown"
+
 __all__ = [
+    "__version__",
     # Shared discovery convention
     "norm_survival",
     "discovery_z",

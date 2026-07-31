@@ -1,48 +1,51 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "count-significance"
 version = "0.2.0"
 description = "Accurate significance and p-values for count data"
-readme = "README.md"
-license = { file = "LICENSE" }
-requires-python = ">=3.9"
-dependencies = [
-    "numpy>=2.0.0",
-    "scipy>=1.13.0",
-    "matplotlib>=3.9.0",
-    "PyYAML>=6.0",
+readme = { file = "PYPI_README.md", content-type = "text/markdown" }
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Enzo Canonero", email = "Enzo.Canonero@rhul.ac.uk" },
+    { name = "Glen Cowan", email = "G.Cowan@rhul.ac.uk" },
 ]
+requires-python = ">=3.9"
+keywords = [
+    "discovery significance",
+    "Asimov data set",
+    "higher-order asymptotics",
+    "Poisson counting experiment",
+    "particle physics",
+]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Typing :: Typed",
+]
+dependencies = ["numpy", "scipy", "PyYAML"]
 
 [project.optional-dependencies]
-dev = [
-    "mypy>=1.19,<2",
-    "pytest>=8",
-    "ruff>=0.16,<0.17",
-]
+dev = ["matplotlib", "mypy", "pytest", "ruff"]
 
 [project.urls]
 Repository = "https://github.com/EnzoCanonero/count-significance"
+Issues = "https://github.com/EnzoCanonero/count-significance/issues"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
 
+[tool.setuptools.package-data]
+count_significance = ["py.typed"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["count_significance", "count_significance.*"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-ra"
 
 [tool.ruff]
 target-version = "py39"
-extend-exclude = ["notebooks"]
-
-[tool.ruff.lint]
-select = ["E4", "E7", "E9", "F", "I"]
 
 [tool.ruff.lint.per-file-ignores]
 "scripts/*.py" = ["E402"]
@@ -50,9 +53,5 @@ select = ["E4", "E7", "E9", "F", "I"]
 [tool.mypy]
 python_version = "3.9"
 files = ["src/count_significance"]
-check_untyped_defs = true
 disallow_untyped_defs = true
 disable_error_code = ["import-untyped"]
-warn_redundant_casts = true
-warn_unused_configs = true
-warn_unused_ignores = true
