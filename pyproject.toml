@@ -29,7 +29,7 @@ classifiers = [
 dependencies = ["numpy", "scipy", "PyYAML"]
 
 [project.optional-dependencies]
-dev = ["matplotlib", "mypy", "pytest", "ruff"]
+dev = ["matplotlib", "mypy<2", "pytest", "ruff"]
 
 [project.urls]
 Repository = "https://github.com/EnzoCanonero/count-significance"
