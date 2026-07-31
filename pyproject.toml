@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "count-significance"
-version = "0.2.0"
+version = "0.2.0rc1"
 description = "Accurate significance and p-values for count data"
 readme = { file = "PYPI_README.md", content-type = "text/markdown" }
 license = "MIT"
@@ -46,6 +46,9 @@ where = ["src"]
 
 [tool.ruff]
 target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
 
 [tool.ruff.lint.per-file-ignores]
 "scripts/*.py" = ["E402"]
