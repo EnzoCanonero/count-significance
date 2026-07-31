@@ -1,7 +1,7 @@
 # Count Significance
 
 [![CI](https://github.com/EnzoCanonero/count-significance/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/EnzoCanonero/count-significance/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/count-significance.svg)](https://pypi.org/project/count-significance/)
+[![PyPI](https://img.shields.io/pypi/v/count-significance?cacheSeconds=300)](https://pypi.org/project/count-significance/)
 
 Accurate significance and p-values for count data.
 
