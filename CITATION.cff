@@ -4,7 +4,7 @@ message: >-
   below and cite the accompanying manuscript.
 title: Count Significance
 type: software
-version: 0.2.0rc1
+version: 0.2.0
 license: MIT
 
 authors:
