@@ -196,6 +196,19 @@ Dependency versions are not pinned. For an archival production run, record the
 resolved environment separately if exact dependency-level reproducibility is
 required.
 
+### Docker
+
+Build the minimal library image from the repository root:
+
+```bash
+docker build -t count-significance:local .
+docker run --rm -it count-significance:local
+```
+
+The image contains the installed Python package and its runtime dependencies;
+plotting scripts, configurations, notebooks, and development tools are not
+included.
+
 ## Testing
 
 Install the optional development dependencies and run the core statistical
