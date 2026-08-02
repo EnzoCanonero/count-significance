@@ -198,16 +198,23 @@ required.
 
 ### Docker
 
-Build the minimal library image from the repository root:
+Build the plotting image from the repository root:
 
 ```bash
-docker build -t count-significance:local .
-docker run --rm -it count-significance:local
+docker build -t count-significance:plots .
+
+mkdir -p plots
+
+docker run --rm \
+  -v "$PWD/plots:/app/plots" \
+  count-significance:plots \
+  python scripts/make_simple_pval_plots.py
 ```
 
-The image contains the installed Python package and its runtime dependencies;
-plotting scripts, configurations, notebooks, and development tools are not
-included.
+The image contains the installed package, Matplotlib, the four plotting
+scripts, and their paper configurations. Generated files are written directly
+to the mounted local `plots/` directory. Substitute another plotting script
+from the table below to reproduce a different figure set.
 
 ## Testing
 

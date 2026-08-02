@@ -7,3 +7,7 @@
 !LICENSE
 !src/
 !src/**
+!scripts/
+!scripts/make_*_plots.py
+!config/
+!config/paper_*.yaml
