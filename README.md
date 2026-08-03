@@ -6,11 +6,11 @@
 Accurate significance and p-values for count data.
 
 Count Significance contains the statistical calculations and reproducible
-plotting workflows for the manuscript *Discovery Sensitivity for a
-Counting Experiment with Background Uncertainty*. It compares first-order
-profile-likelihood results with the Barndorff–Nielsen $r^\ast$ correction,
-exact calculations, and Monte Carlo estimates of the median discovery
-significance.
+plotting workflows for the manuscript [*Discovery Sensitivity for a Counting
+Experiment with Background Uncertainty*](https://arxiv.org/abs/2607.29436).
+It compares first-order profile-likelihood results with the Barndorff–Nielsen
+$r^\ast$ correction, exact calculations, and Monte Carlo estimates of the
+median discovery significance.
 
 The repository treats two models:
 
@@ -450,8 +450,8 @@ batch workflows call the same mathematical implementation in
 
 This repository accompanies:
 
-> Enzo Canonero and Glen Cowan, *Discovery Sensitivity for a Counting
-> Experiment with Background Uncertainty*.
+> Enzo Canonero and Glen Cowan, [*Discovery Sensitivity for a Counting
+> Experiment with Background Uncertainty*](https://arxiv.org/abs/2607.29436).
 
 - [Enzo Canonero](https://orcid.org/0000-0002-7180-4562) —
   [Enzo.Canonero@rhul.ac.uk](mailto:Enzo.Canonero@rhul.ac.uk)
