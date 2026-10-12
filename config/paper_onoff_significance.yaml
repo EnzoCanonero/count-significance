@@ -6,8 +6,8 @@ tau_vec: [1.0]
 # Scan
 max_observed_count: 10
 m_sigma_offsets: [-1, 0, 1]
-min_m0_values: 3
-drop_zero_m0: true
+min_m0_values: 4
+drop_zero_m0: false
 trim_to_discovery_tail: true
 
 # Statistical options

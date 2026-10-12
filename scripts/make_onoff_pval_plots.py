@@ -58,6 +58,20 @@ def _legend_kwargs() -> dict[str, Any]:
     }
 
 
+def _off_count_colors(m_values: list[int]) -> list[str]:
+    """Use red for m=0 while preserving the colour cycle for positive counts."""
+    color_cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+    colors = []
+    positive_index = 0
+    for m0 in m_values:
+        if m0 == 0:
+            colors.append("tab:red")
+        else:
+            colors.append(color_cycle[positive_index % len(color_cycle)])
+            positive_index += 1
+    return colors
+
+
 # Add separate legends for statistics, model parameters, and observed OFF counts.
 def _add_plot_legends(
     ax,
@@ -366,9 +380,9 @@ def write_pvalue_pdf(
         grouped[(result["s0"], result["b"], result["tau"])].append(result)
 
     with PdfPages(out_pdf) as pdf:
-        colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
         for _, group in sorted(grouped.items()):
             group = sorted(group, key=lambda item: item["m0"])
+            colors = _off_count_colors([result["m0"] for result in group])
             fig, ax = plt.subplots(figsize=PLOT_FIGSIZE)
             ax.set_box_aspect(1)
 
@@ -447,9 +461,9 @@ def write_significance_pdf(
         grouped[(result["s0"], result["b"], result["tau"])].append(result)
 
     with PdfPages(out_pdf) as pdf:
-        colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
         for _, group in sorted(grouped.items()):
             group = sorted(group, key=lambda item: item["m0"])
+            colors = _off_count_colors([result["m0"] for result in group])
             fig, ax = plt.subplots(figsize=PLOT_FIGSIZE)
             ax.set_box_aspect(1)
 
