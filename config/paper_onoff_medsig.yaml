@@ -8,14 +8,14 @@ rel_sig_vec: [0.25, 1.0]
 b_min: 0.1
 b_max: 100.0
 
-# Local settings
+# Paper calculation: outer pseudoexperiments with deterministic profiled null tails.
 local:
   n_bpts: 50
-  n_outer: 2000
+  n_outer: 1000000  # Per (s, b, tau) point; estimates the median significance.
   seed: 12345
 
   reference_method: profile_sum
-  reference_tail_mass: 1.0e-12
+  reference_tail_mass: 1.0e-12  # Omitted probability per Poisson support.
 
   # MC alternative: replace reference_method above and uncomment:
   # reference_method: mc
@@ -24,7 +24,8 @@ local:
   # max_toys: 50000
 
 # Batch Monte Carlo settings
-# These are the production settings used for the manuscript calculation.
+# Alternative Condor workflow using inner Monte Carlo toys.
+# Settings retained from the earlier campaign; current paper plots use local above.
 batch_mc:
   n_bpts: 50
   n_outer: 2000

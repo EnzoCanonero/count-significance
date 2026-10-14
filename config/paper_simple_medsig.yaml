@@ -6,8 +6,8 @@ b_min: 0.1
 b_max: 100.0
 n_bpts: 50
 
-# Monte Carlo settings
-n_outer: 5000
+# Paper calculation: outer pseudoexperiments with exact background Poisson tails.
+n_outer: 1000000  # Per (s, b) point; estimates the median significance.
 seed: 12345
 
 # Statistical options
