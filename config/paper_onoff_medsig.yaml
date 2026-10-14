@@ -8,15 +8,20 @@ rel_sig_vec: [0.25, 1.0]
 b_min: 0.1
 b_max: 100.0
 
-# Local Monte Carlo settings
-# The serial script uses this practical profile for runs from a local terminal.
-local_mc:
-  n_bpts: 30
-  n_outer: 100
-  mc_sigrel_Z: 0.10
-  min_toys: 500
-  max_toys: 50000
+# Local settings
+local:
+  n_bpts: 50
+  n_outer: 2000
   seed: 12345
+
+  reference_method: profile_sum
+  reference_tail_mass: 1.0e-12
+
+  # MC alternative: replace reference_method above and uncomment:
+  # reference_method: mc
+  # mc_sigrel_Z: 0.10
+  # min_toys: 500
+  # max_toys: 50000
 
 # Batch Monte Carlo settings
 # These are the production settings used for the manuscript calculation.

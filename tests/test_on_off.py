@@ -10,6 +10,7 @@ import count_significance.on_off as on_off
 from count_significance.on_off import (
     asimov_Zs_onoff,
     b_profiled,
+    expected_significance_onoff,
     loglik_diff,
     pvals_onoff,
     pvals_onoff_profile_sum,
@@ -324,3 +325,86 @@ def test_monte_carlo_pvalue_with_controlled_toys(monkeypatch):
     assert zero_result["p_mc_raw"] == 0.0
     assert zero_result["p_mc"] == pytest.approx(1.0 / 5.0)
     assert zero_result["p_resolution"] == pytest.approx(1.0 / 5.0)
+
+
+def test_expected_significance_mc_regression():
+    """Selecting MC preserves the original seeded nested-toy calculation."""
+    settings = dict(
+        s_true=2.0,
+        b=np.array([0.5, 2.0]),
+        tau=np.array([0.5, 2.0]),
+        n_outer=12,
+        min_toys=100,
+        max_toys=100,
+        seed=93217,
+    )
+    default = expected_significance_onoff(**settings)
+    explicit = expected_significance_onoff(**settings, reference_method="mc")
+
+    assert set(default) == {"Z_A_r", "Z_A_rstar", "Z_mc_median", "Z_mc_mean"}
+    for key in default:
+        np.testing.assert_array_equal(default[key], explicit[key])
+    np.testing.assert_allclose(
+        default["Z_mc_median"],
+        [0.6114721673876408, 0.8136568081151939],
+        rtol=1e-14,
+    )
+    np.testing.assert_allclose(
+        default["Z_mc_mean"],
+        [0.5732203249086218, 0.7788660757576525],
+        rtol=1e-14,
+    )
+
+
+def test_expected_significance_profile_sum(monkeypatch):
+    """Outer toys use direct profile tails, including count boundaries."""
+    def forbid_inner_mc(*args, **kwargs):
+        pytest.fail("profile_sum must not generate inner Monte Carlo toys")
+
+    monkeypatch.setattr(on_off, "pvals_onoff", forbid_inner_mc)
+    signal, background, tau = np.broadcast_arrays(
+        np.array([[0.0], [2.0]]), np.array([0.0, 0.5]), np.array([0.5, 2.0])
+    )
+    seed, n_outer, tail_mass = 119, 24, 1e-9
+    result = expected_significance_onoff(
+        signal, background, tau, n_outer=n_outer, seed=seed,
+        reference_method="profile_sum", reference_tail_mass=tail_mass,
+        sigrel=-1.0, min_toys=-2, max_toys=-1,
+    )
+    rng = np.random.default_rng(seed)
+    expected_medians, expected_means = [], []
+    for s, b, t in zip(signal.ravel(), background.ravel(), tau.ravel()):
+        outer_rng = np.random.default_rng(int(rng.integers(1, 2**31 - 1)))
+        n_values = outer_rng.poisson(s + b, size=n_outer)
+        m_values = outer_rng.poisson(t * b, size=n_outer)
+        z_values = [
+            norm.isf(pvals_onoff_profile_sum(
+                0.0, int(n), int(m), float(t), tail_mass=tail_mass,
+            )["p_ref"])
+            for n, m in zip(n_values, m_values)
+        ]
+        expected_medians.append(np.median(z_values))
+        expected_means.append(np.mean(z_values))
+
+    assert result["Z_mc_median"].shape == signal.shape
+    assert result["Z_mc_median"][0, 0] == 0.0
+    np.testing.assert_allclose(
+        result["Z_mc_median"].ravel(), expected_medians, rtol=1e-13, atol=1e-15,
+    )
+    np.testing.assert_allclose(
+        result["Z_mc_mean"].ravel(), expected_means, rtol=1e-13, atol=1e-15,
+    )
+
+
+def test_expected_significance_rejects_unknown_reference_method():
+    with pytest.raises(ValueError, match="reference_method"):
+        expected_significance_onoff(2.0, 1.0, 1.0, reference_method="unknown")
+
+
+@pytest.mark.parametrize("tail_mass", [0.0, 1.0, np.nan])
+def test_expected_significance_rejects_invalid_profile_tail_mass(tail_mass):
+    with pytest.raises(ValueError, match="reference_tail_mass"):
+        expected_significance_onoff(
+            2.0, 1.0, 1.0, reference_method="profile_sum",
+            reference_tail_mass=tail_mass,
+        )

@@ -1,7 +1,8 @@
 """Discovery statistics for the Poisson on/off counting model."""
 
 import math
-from typing import Optional, Union
+from functools import lru_cache
+from typing import Callable, Optional, Union
 
 import numpy as np
 from scipy.stats import norm, poisson
@@ -472,11 +473,12 @@ def _mc_significance_summary_onoff(
     min_toys: int = 10_000,
     max_toys: int = 2_000_000,
     seed: int = 12345,
+    profile_pvalue: Optional[Callable[[int, int, float], float]] = None,
 ) -> tuple[float, float]:
-    """Return the median and mean significance from nested on/off toys.
+    """Return the median and mean significance over on/off data toys.
 
-    Outer toys follow N ~ Pois(s_true + b) and M ~ Pois(tau b). Each inner
-    null sample estimates the corresponding discovery-tail probability.
+    Outer toys follow N ~ Pois(s_true + b) and M ~ Pois(tau b). If supplied,
+    profile_pvalue evaluates the null tail instead of generating inner toys.
     """
     if n_outer <= 0:
         raise ValueError("n_outer must be positive")
@@ -489,6 +491,10 @@ def _mc_significance_summary_onoff(
     p_mc = np.empty(n_outer, dtype=float)
 
     for i, (n_obs, m_obs) in enumerate(zip(n_observed, m_observed)):
+        if profile_pvalue is not None:
+            p_mc[i] = profile_pvalue(int(n_obs), int(m_obs), tau)
+            continue
+
         inner_seed = int(rng.integers(1, 2**31 - 1))
 
         out = pvals_onoff(
@@ -518,12 +524,30 @@ def expected_significance_onoff(
     min_toys: int = 10_000,
     max_toys: int = 2_000_000,
     seed: int = 12345,
+    reference_method: str = "mc",
+    reference_tail_mass: float = 1e-12,
 ) -> dict[str, np.ndarray]:
     """Return Asimov and Monte Carlo expected discovery significances.
 
     The Asimov values use n_A = s_true + b and m_A = tau b. The Monte Carlo
-    values are the median and mean of Z over on/off data toys.
+    values are the median and mean of Z over on/off data toys. reference_method
+    selects inner Monte Carlo ("mc") or deterministic profiled tails
+    ("profile_sum"). Both methods retain the outer toys. reference_tail_mass
+    controls Poisson truncation only for profile_sum; sigrel and toy limits
+    apply only to mc. Repeated profiled tails are cached within this call.
     """
+    reference_method = str(reference_method).lower()
+    if reference_method not in ("mc", "profile_sum"):
+        raise ValueError(f"Unknown reference_method={reference_method!r}")
+    if reference_method == "profile_sum" and not 0.0 < reference_tail_mass < 1.0:
+        raise ValueError("reference_tail_mass must lie between zero and one")
+
+    @lru_cache(maxsize=None)
+    def profile_pvalue(n: int, m: int, tau_value: float) -> float:
+        return pvals_onoff_profile_sum(
+            0.0, n, m, tau_value, tail_mass=reference_tail_mass,
+        )["p_ref"]
+
     s_arr, b_arr, tau_arr = np.broadcast_arrays(
         np.asarray(s_true, dtype=float),
         np.asarray(b, dtype=float),
@@ -555,6 +579,7 @@ def expected_significance_onoff(
             min_toys=min_toys,
             max_toys=max_toys,
             seed=int(rng.integers(1, 2**31 - 1)),
+            profile_pvalue=profile_pvalue if reference_method == "profile_sum" else None,
         )
         z_asimov_r[i] = asim["Z_A_r"]
         z_asimov_rstar[i] = asim["Z_A_rstar"]

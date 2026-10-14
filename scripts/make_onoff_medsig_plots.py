@@ -162,15 +162,18 @@ def compute_median_significance(
     b_values_tau: np.ndarray,
     b_values_rel_sig: np.ndarray,
     n_outer: int,
-    mc_sigrel_z: float,
-    min_toys: int,
-    max_toys: int,
-    seed: int,
+    mc_sigrel_z: float = 0.05,
+    min_toys: int = 10_000,
+    max_toys: int = 2_000_000,
+    seed: int = 12345,
+    reference_method: str = "mc",
+    reference_tail_mass: float = 1e-12,
 ) -> dict[str, dict[str, np.ndarray]]:
     """Compute Asimov and Monte Carlo significance grids for the on/off model.
 
     The Asimov counts are n_A = s + b and m_A = tau b. The scans keep either
     tau fixed or sigma_b/b fixed through tau = 1 / [(sigma_b/b)^2 b].
+    reference_method selects Monte Carlo or deterministic inner tails.
     """
     seed = int(seed)
     mc_sigrel_z = float(mc_sigrel_z)
@@ -191,6 +194,8 @@ def compute_median_significance(
         min_toys=min_toys,
         max_toys=max_toys,
         seed=seed,
+        reference_method=reference_method,
+        reference_tail_mass=reference_tail_mass,
     )
 
     # For fixed relative uncertainty, tau(b) = 1 / (rel_sig^2 b).
@@ -207,6 +212,8 @@ def compute_median_significance(
         min_toys=min_toys,
         max_toys=max_toys,
         seed=seed + 1,
+        reference_method=reference_method,
+        reference_tail_mass=reference_tail_mass,
     )
 
     return {
@@ -639,21 +646,30 @@ def main(cfg_path: str) -> None:
     configure_plot_style()
 
     cfg = load_yaml(cfg_path)
-    local_mc = cfg["local_mc"]
+    local = cfg["local"]
     s_vec = np.asarray(cfg["s_vec"], dtype=float)
     tau_vec = np.asarray(cfg["tau_vec"], dtype=float)
     rel_sig_vec = np.asarray(cfg["rel_sig_vec"], dtype=float)
     b_values = np.logspace(
         np.log10(cfg["b_min"]),
         np.log10(cfg["b_max"]),
-        int(local_mc["n_bpts"]),
+        int(local["n_bpts"]),
     )
 
-    n_outer = int(local_mc["n_outer"])
-    seed = int(local_mc.get("seed", 12345))
-    mc_sigrel_z = float(local_mc["mc_sigrel_Z"])
-    min_toys = int(local_mc["min_toys"])
-    max_toys = int(local_mc["max_toys"])
+    n_outer = int(local["n_outer"])
+    seed = int(local.get("seed", 12345))
+    reference_method = str(local.get("reference_method", "profile_sum")).lower()
+    reference_options = {"reference_method": reference_method}
+    if reference_method == "profile_sum":
+        reference_options["reference_tail_mass"] = float(local.get("reference_tail_mass", 1e-12))
+    elif reference_method == "mc":
+        reference_options.update(
+            mc_sigrel_z=float(local["mc_sigrel_Z"]),
+            min_toys=int(local["min_toys"]),
+            max_toys=int(local["max_toys"]),
+        )
+    else:
+        raise ValueError(f"Unknown reference_method={reference_method!r}")
 
     selected_statistics = cfg.get("statistics", ["r", "rstar"])
     if not isinstance(selected_statistics, list):
@@ -686,10 +702,8 @@ def main(cfg_path: str) -> None:
         b_values_tau=b_values,
         b_values_rel_sig=b_values,
         n_outer=n_outer,
-        mc_sigrel_z=mc_sigrel_z,
-        min_toys=min_toys,
-        max_toys=max_toys,
         seed=seed,
+        **reference_options,
     )
 
     # The display cap masks only Monte Carlo markers; continuous curves are unchanged.
