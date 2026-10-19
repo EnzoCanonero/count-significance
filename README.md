@@ -19,8 +19,8 @@ The repository treats two models:
   background.
 
 The code provides the numerical routines, the YAML configurations used for the
-paper figures, practical serial workflows, and a reproducible HTCondor-based
-parallel workflow for the high-precision on/off Monte Carlo calculation.
+paper figures, serial workflows, and an optional HTCondor-based parallel
+workflow for the nested on/off Monte Carlo calculation.
 
 ## Contents
 
@@ -274,6 +274,10 @@ count, the number of tail exceedances, the profiled background, the effective
 resolution, and a precision-limit flag. The uncapped corrected estimate
 $(K+1)/(N+1)$ can be reconstructed from the returned $K$ and $N$.
 
+`expected_significance_onoff` also accepts `reference_method="profile_sum"`
+and `reference_tail_mass=1e-12` to use deterministic profiled null tails for
+the outer pseudoexperiments. Its API default remains `reference_method="mc"`.
+
 ## Reproducing the plots
 
 Run plotting scripts from the repository root. Each command accepts an
@@ -315,18 +319,21 @@ the displayed y-axis maximum and hides Monte Carlo markers at or above that
 value. It does not alter the calculated values, although continuous curves
 outside the displayed range are naturally outside the frame.
 
-The serial on/off script reads `local_mc`, whose settings are deliberately
-small enough for a workstation run. They do **not** reproduce the production
-precision of the manuscript. Both the local script and the batch collector
-write the same seven configured on/off PDF paths, so a local run can overwrite
-production plots.
+Both expected-significance paper configurations use `n_outer: 1000000` per
+point to estimate the median. The known-background calculation uses exact
+Poisson tails. The serial on/off script reads `local`, with
+`reference_method: profile_sum` and `reference_tail_mass: 1.0e-12` for
+deterministic profiled null tails. The commented settings in that section
+provide the inner Monte Carlo alternative. The serial script and batch
+collector write the same seven configured on/off PDF paths.
 
 ## HTCondor production workflow
 
-The production on/off calculation reads `batch_mc` from
-`config/paper_onoff_medsig.yaml`. It distributes the outer Monte Carlo replicas
-while preserving the same physical grids, statistical routines, and plot
-writer as the serial workflow.
+The alternative nested Monte Carlo workflow reads `batch_mc` from
+`config/paper_onoff_medsig.yaml`, retaining the earlier campaign settings.
+The current paper plots use `local` instead. HTCondor distributes the outer
+Monte Carlo replicas while preserving the same physical grids, statistical
+routines, and plot writer as the serial workflow.
 
 The cluster requires `condor_submit`, Bash, and a Python environment containing
 the dependencies above. If worker nodes need an activation script, provide an
@@ -391,9 +398,14 @@ makes the tree dirty and should not be mixed with a production campaign.
 
 ## Monte Carlo precision
 
-For the observed first-order significance $Z=\max(0,r_{\mathrm{obs}})$, the on/off
-routine estimates the number of null toys required for a target relative
-uncertainty $\epsilon_Z$ as
+`n_outer` controls the sampling precision of the estimated median. With
+`reference_method="profile_sum"`, there is no inner Monte Carlo noise;
+`reference_tail_mass` controls the omitted probability per Poisson support.
+
+For the inner Monte Carlo alternative (`reference_method="mc"`), the on/off
+routine uses the observed first-order significance
+$Z=\max(0,r_{\mathrm{obs}})$ to estimate the number of null toys required for
+a target relative uncertainty $\epsilon_Z$ as
 
 $$
 N=\left\lceil
