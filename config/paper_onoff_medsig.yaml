@@ -52,7 +52,7 @@ batch_mc:
       inner_seed: 130000
 
 # Display
-# Graphical only: continuous curves retain their values and higher MC markers are hidden.
+# Upper y-axis limit only; all curve and MC values are retained.
 Z_display_max: 5.0
 
 # Figure selection

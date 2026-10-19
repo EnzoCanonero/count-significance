@@ -98,26 +98,6 @@ def _display_y_max(
     return _medsig_ymax(*values)
 
 
-# Mask Monte Carlo markers above the display range without changing the inputs.
-def mask_mc_for_display(
-    results: dict[str, dict[str, np.ndarray]],
-    z_display_max: Optional[float],
-) -> dict[str, dict[str, np.ndarray]]:
-    if z_display_max is None:
-        return results
-
-    display_results = {
-        scan: {name: values.copy() for name, values in scan_results.items()}
-        for scan, scan_results in results.items()
-    }
-    z_display_max = float(z_display_max)
-    for scan_results in display_results.values():
-        for key in ("Z_mc_median", "Z_mc_mean"):
-            values = scan_results[key]
-            values[values >= z_display_max] = np.nan
-    return display_results
-
-
 # Collect the statistical curves that determine the displayed y range.
 def _selected_y_values(
     scan_results: dict[str, np.ndarray],
@@ -705,9 +685,6 @@ def main(cfg_path: str) -> None:
         seed=seed,
         **reference_options,
     )
-
-    # The display cap masks only Monte Carlo markers; continuous curves are unchanged.
-    results = mask_mc_for_display(results, z_display_max)
 
     write_median_significance_pdfs(
         s_vec=s_vec,

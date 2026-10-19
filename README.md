@@ -315,9 +315,8 @@ mc_summaries: [median]
 
 `statistics` may contain `r`, `rstar`, or both; `mc_summaries` may contain
 `median`, `mean`, or both. In the on/off configuration, `Z_display_max` sets
-the displayed y-axis maximum and hides Monte Carlo markers at or above that
-value. It does not alter the calculated values, although continuous curves
-outside the displayed range are naturally outside the frame.
+only the displayed y-axis maximum. All curve and Monte Carlo values are
+retained; the axes clip anything outside the displayed range.
 
 Both expected-significance paper configurations use `n_outer: 1000000` per
 point to estimate the median. The known-background calculation uses exact
