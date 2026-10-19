@@ -122,6 +122,24 @@ def test_mle_limit():
     )
 
 
+@pytest.mark.parametrize(
+    "s,n,m,tau,expected",
+    [
+        (0.0, 1.000001, 2.0, 2.0, 0.06804210940863299),
+        (0.0, 1.00001, 2.0, 2.0, 0.06804865837963679),
+        (7.0 + 1e-6, 12.0, 10.0, 2.0, 0.03244903055073259),
+        (7.0 - 1e-6, 12.0, 10.0, 2.0, 0.03244955120752953),
+        (7.0 + 1e-9, 12.0, 10.0, 2.0, 0.03244929061879842),
+        (7.0 - 1e-9, 12.0, 10.0, 2.0, 0.03244929113945526),
+    ],
+)
+def test_higher_order_root_near_mle(s, n, m, tau, expected):
+    """High-precision references remain accurate on both sides of the MLE."""
+    assert r_star_onoff(s, n, m, tau) == pytest.approx(
+        expected, rel=1e-12, abs=1e-14,
+    )
+
+
 def test_discovery_pvalues():
     """The deterministic reference uses the inclusive discovery tail."""
     result = pvals_onoff_profile_sum(

@@ -1,6 +1,7 @@
 """Discovery statistics for the Poisson on/off counting model."""
 
 import math
+from decimal import Decimal, localcontext
 from functools import lru_cache
 from typing import Callable, Optional, Union
 
@@ -177,12 +178,40 @@ def u_stat_onoff(s: float, n: float, m: float, tau: float) -> float:
     return numerator * log_terms / denominator
 
 
+def _r_star_onoff_near_mle(s: float, n: float, m: float, tau: float) -> float:
+    """Evaluate the same r* formula with extra precision near its removable singularity."""
+    with localcontext() as context:
+        context.prec = 80
+        sd, nd, md, td = map(Decimal.from_float, (s, n, m, tau))
+        linear_term = nd + md - (1 + td) * sd
+        root = (linear_term**2 + 4 * (1 + td) * md * sd).sqrt()
+        if linear_term < 0:
+            background = 2 * md * sd / (root - linear_term)
+        else:
+            background = (linear_term + root) / (2 * (1 + td))
+        mean_on = sd + background
+        mean_off = td * background
+        log_on = (nd / mean_on).ln()
+        log_off = (md / mean_off).ln()
+        delta = nd * log_on + md * log_off - nd - md + mean_on + mean_off
+        r = (2 * delta).sqrt()
+        if nd - sd - md / td < 0:
+            r = -r
+        u = (
+            (nd * md).sqrt()
+            / (nd / mean_on**2 + md / background**2).sqrt()
+            * (log_on / background - log_off / mean_on)
+        )
+        return float(r + abs(u / r).ln() / r)
+
+
 def r_star_onoff(s: float, n: float, m: float, tau: float) -> float:
     """Return the higher-order root r*(s) = r + log|u / r| / r.
 
     At n = 0 or m = 0 the logarithmic adjustment is undefined, so r* = r.
     At s = s_hat the analytic limit is
     (n tau^3 - m) / [6 (m + n tau^2)^(3/2)].
+    Nearby, the same formula is evaluated with extra arithmetic precision.
     """
     s = float(s)
     n = float(n)
@@ -204,6 +233,11 @@ def r_star_onoff(s: float, n: float, m: float, tau: float) -> float:
     if tau > 0.0 and abs(mle_residual) <= roundoff_limit:
         denominator = m + n * tau**2
         return (n * tau**3 - m) / (6.0 * denominator**1.5)
+
+    # Cancellation in the likelihood and log(u/r) is amplified by division by r.
+    # Switch arithmetic before it becomes significant; do not flatten to the limit.
+    if abs(mle_residual) <= 0.01 * mle_scale:
+        return _r_star_onoff_near_mle(s, n, m, tau)
 
     u = u_stat_onoff(s, n, m, tau)
 
