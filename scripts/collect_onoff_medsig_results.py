@@ -30,7 +30,6 @@ from count_significance.on_off import (  # noqa: E402
 )
 from scripts.make_onoff_medsig_plots import (  # noqa: E402
     configure_plot_style,
-    mask_mc_for_display,
     write_median_significance_pdfs,
 )
 
@@ -915,7 +914,6 @@ def main() -> None:
     print_diagnostics(settings, diagnostics)
 
     results = build_plot_results(groups, settings)
-    results = mask_mc_for_display(results, z_display_max)
 
     configure_plot_style()
     write_median_significance_pdfs(

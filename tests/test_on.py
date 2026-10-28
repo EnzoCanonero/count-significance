@@ -107,6 +107,30 @@ def test_mle_limit():
     ) == pytest.approx(expected_rstar, rel=1e-12)
 
 
+@pytest.mark.parametrize(
+    "s0,b,n,continuity_correction,expected",
+    [
+        (0.0, 1.0, 1.0 + 1e-9, False, 0.1666666675972223),
+        (0.0, 1.0, 1.0 - 1e-9, False, 0.16666666573611114),
+        (0.0, 1.49999999, 2.0, True, 0.13608277172852165),
+        (0.0, 1.50000001, 2.0, True, 0.13608275524738705),
+        (3.0, 1.0, 4.0 + 1e-6, False, 0.08333382465275847),
+        (3.0, 1.0, 4.0 - 1e-6, False, 0.08333284201386945),
+    ],
+)
+def test_higher_order_root_near_mle(s0, b, n, continuity_correction, expected):
+    """Independent high-precision references cover both sides of the MLE."""
+    assert r_star_on(s0, b, n, continuity_correction) == pytest.approx(
+        expected, rel=1e-12, abs=1e-14,
+    )
+
+
+def test_discovery_pvalue_near_mle():
+    """Continuity-corrected observed counts retain the near-MLE significance."""
+    result = pvals_on(s0=0.0, b=1.49999999, n=2)
+    assert result["p_rstar"] == pytest.approx(0.4458779234961859, rel=1e-12)
+
+
 def test_discovery_pvalues():
     """The returned p-values use the discovery cap without clipping rare tails."""
     counts = np.array([0.0, 1.0, 4.0])

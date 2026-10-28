@@ -1,6 +1,7 @@
 """Discovery statistics for a Poisson count with known background."""
 
 import math
+from decimal import Decimal, localcontext
 
 import numpy as np
 from scipy.stats import norm, poisson
@@ -70,6 +71,19 @@ def u_stat_on(
     return math.sqrt(n) * math.log(n / mu0)
 
 
+def _r_star_on_near_mle(mu0: float, n: float) -> float:
+    """Evaluate the same r* formula with extra precision near its removable singularity."""
+    with localcontext() as context:
+        context.prec = 80
+        mean, count = map(Decimal.from_float, (float(mu0), n))
+        log_ratio = (count / mean).ln()
+        r = (2 * (count * log_ratio - count + mean)).sqrt()
+        if count < mean:
+            r = -r
+        u = count.sqrt() * log_ratio
+        return float(r + abs(u / r).ln() / r)
+
+
 def r_star_on(
     s0: float,
     b: float,
@@ -81,6 +95,7 @@ def r_star_on(
     Away from the endpoints, r* = r + log|u / r| / r. At n = 0 the logarithmic
     adjustment is undefined, so r* = r. When the effective count equals
     s0 + b, its analytic limit is 1 / [6 sqrt(s0 + b)].
+    Nearby, the same formula is evaluated with extra arithmetic precision.
     """
     n_eff = _correct_count(n, continuity_correction)
     mu0 = s0 + b
@@ -100,6 +115,10 @@ def r_star_on(
 
     if mu0 > 0.0 and abs(mle_residual) <= roundoff_limit:
         return 1.0 / (6.0 * math.sqrt(mu0))
+
+    # Cancellation in the likelihood and log(u/r) is amplified by division by r.
+    if mu0 > 0.0 and abs(mle_residual) <= 0.01 * mle_scale:
+        return _r_star_on_near_mle(mu0, n_eff)
 
     u = u_stat_on(s0, b, n_eff, continuity_correction=False)
 
